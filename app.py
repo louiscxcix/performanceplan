@@ -29,7 +29,7 @@ try:
     st.sidebar.success("API 키가 성공적으로 연결되었습니다!", icon="✅")
 except (KeyError, FileNotFoundError):
     # 로컬에서 실행하거나 secrets 설정이 안 된 경우
-    st.sidebar.error("API 키를 찾을 수 없습니다.", icon="�")
+    st.sidebar.error("API 키를 찾을 수 없습니다.", icon="🚨")
     st.sidebar.info("이 앱을 배포하려면 Streamlit Cloud의 'Settings > Secrets'에 아래 내용을 추가해야 합니다.")
     st.sidebar.code("GEMINI_API_KEY = 'YOUR_GOOGLE_AI_API_KEY'")
 
@@ -54,7 +54,7 @@ def analyze_training_request_with_gemini(user_text, goal):
 
     **분석 및 구성 가이드라인:**
     1.  **사용자 요청 분석:** 사용자가 명시적으로 요청한 훈련 활동들을 모두 추출합니다.
-    2.  **전문가적 판단으로 훈련 추가:** 사용자의 목표('{goal}')를 고려할 때, 명시적으로 언급되지 않았지만 필수적인 보조 훈련들을 **반드시 추가**해주세요. (예: 마라톤 준비 시 '코어 근력 운동'이나 '유연성 스트레칭' 추가, 근력 운동 시 '유산소 운동' 추가 등)
+    2.  **전문가적 판단으로 훈련 추가:** 사용자의 목표('{goal}')와 종목 특성을 고려할 때, 명시적으로 언급되지 않았지만 필수적인 보조 훈련들을 **반드시 추가**해주세요. (예: 마라톤 준비 시 '코어 근력 운동'이나 '유연성 스트레칭' 추가, 근력 운동 시 '유산소 운동' 추가 등)
     3.  **강도 분류:** 추출하고 추가한 모든 훈련 활동의 성격을 '고강도', '중강도', '저강도', '휴식' 중 하나로 정확히 분류합니다.
         - '고강도': 최대 심박수에 근접하는 활동, 인터벌, 고중량 웨이트, 전력 질주.
         - '중강도': 대화는 가능하지만 노래는 힘든 수준의 활동, 템포 런, 장거리 달리기.
@@ -84,7 +84,7 @@ def analyze_training_request_with_gemini(user_text, goal):
         st.error(f"AI 분석 중 오류가 발생했습니다: {e}")
         return None
 
-# --- 4. 과부하-초과회복 모델 기반 계획 생성 로직 (수정됨) ---
+# --- 4. 과부하-초과회복 모델 기반 계획 생성 로직 (전면 수정) ---
 
 def get_trainings_by_intensity(training_list):
     """Helper to categorize trainings."""
@@ -117,95 +117,115 @@ def get_detailed_guide(workout_name):
 
 
 def generate_dynamic_plan(total_days, date_range, trainings):
-    """과부하-초과회복 모델 및 피킹 전략을 적용한 동적 계획 생성 함수"""
-    performance_level = 100.0
-    plan = []
+    """
+    Fitness-Fatigue 모델을 적용하여 우상향하는 퍼포먼스 곡선을 생성하고,
+    시합일에 피킹하는 동적 계획 생성 함수
+    """
+    # 모델 파라미터
+    fitness = 50.0  # 장기적인 체력 수준
+    fatigue = 50.0  # 단기적인 피로 수준
     
-    intensity_map = {'고강도': 20, '중강도': 12, '저강도': 5, '휴식': 0}
-    recovery_rate = 10 
-    supercompensation_bonus = 1.05
+    # 강도별 훈련 부하(Training Load) 정의
+    # ts: Training Stress (피로도 기여), af: Adaptation Factor (체력 기여)
+    load_map = {
+        '고강도': {'ts': 30, 'af': 1.5},
+        '중강도': {'ts': 18, 'af': 1.0},
+        '저강도': {'ts': 5,  'af': 0.5},
+        '휴식':   {'ts': 0,  'af': 0}
+    }
+    
+    # 피로와 체력의 감소율 (매일 자연 감소)
+    fatigue_decay = 0.4 # 피로는 빠르게 사라짐
+    fitness_decay = 0.98 # 체력은 천천히 사라짐
 
+    plan = []
     consecutive_training_days = 0
 
     for i, day in enumerate(date_range):
         progress = i / total_days
         remaining_days = total_days - i
 
-        # --- Tapering (피킹) 전략 강화 ---
-        if remaining_days <= 14:
+        # --- 1. 훈련 유형 결정 (주기화 및 피킹 전략) ---
+        workout_type = '휴식' # 기본값
+        
+        # 테이퍼링 기간 (마지막 10일)
+        if remaining_days <= 10:
             phase = "테이퍼링"
-            # D-1, D-2는 완전 휴식 또는 매우 가벼운 활동
-            if remaining_days <= 2:
-                workout_type = '휴식'
-            # D-3은 마지막 컨디션 점검 (짧은 고강도)
-            elif remaining_days == 3:
-                workout_type = '고강도'
-            # 그 외 테이퍼링 기간: 휴식과 저강도 비중 대폭 증가
-            else:
-                workout_type = '저강도' if random.random() > 0.3 else '휴식'
+            if remaining_days in [1, 2]: workout_type = '휴식'
+            elif remaining_days == 3: workout_type = '저강도' # 컨디션 조절
+            elif remaining_days == 5: workout_type = '고강도' # 마지막 고강도 자극
+            else: workout_type = '저강도' if random.random() > 0.4 else '휴식'
             consecutive_training_days = 0
         
-        # --- 일반 주기화 로직 ---
+        # 일반 기간
         else:
             if progress < 0.6: phase = "준비기"
             else: phase = "시합기"
             
-            force_rest = (performance_level < 70 and consecutive_training_days > 0)
-            should_train = (consecutive_training_days < random.choice([2, 3]))
-
-            if force_rest or not should_train:
-                workout_type = '저강도' if random.random() > 0.5 else '휴식'
-                consecutive_training_days = 0
-            else:
+            # 2-3일 훈련 후 1일 휴식 패턴
+            if consecutive_training_days < random.choice([2, 3]):
                 consecutive_training_days += 1
                 if phase == "준비기":
-                    workout_type = '중강도' if random.random() > 0.3 else '고강도'
+                    workout_type = random.choice(['중강도', '중강도', '고강도'])
                 else: # 시합기
-                    workout_type = '고강도' if random.random() > 0.4 else '중강도'
+                    workout_type = random.choice(['고강도', '고강도', '중강도'])
+            else:
+                workout_type = '저강도' if random.random() > 0.5 else '휴식'
+                consecutive_training_days = 0
 
-        # 훈련 및 퍼포먼스 계산
-        workout_name = random.choice(trainings[workout_type])
-        training_intensity = intensity_map[workout_type]
+        # --- 2. Fitness-Fatigue 모델 계산 ---
         
-        # 테이퍼링 기간에는 볼륨 감소
-        if phase == "테이퍼링" and workout_type == '고강도':
-            training_intensity *= 0.5 # 강도는 유지하되, 볼륨(피로도)은 절반으로
+        # 매일 체력과 피로는 자연 감소
+        fitness *= fitness_decay
+        fatigue *= fatigue_decay
 
-        if training_intensity > 0:
-            fatigue = training_intensity * (1 + random.uniform(-0.1, 0.1))
-            performance_level -= fatigue
-        else:
-            performance_level += recovery_rate
-            if performance_level > 100:
-                 performance_level *= supercompensation_bonus
+        # 훈련 부하 적용
+        load = load_map[workout_type]
+        training_stress = load['ts']
+        adaptation_factor = load['af']
+        
+        # 테이퍼링 기간에는 훈련 부하 감소
+        if phase == "테이퍼링" and workout_type != '휴식':
+            training_stress *= 0.6
 
-        performance_level = max(50, min(performance_level, 150))
+        fatigue += training_stress
+        fitness += training_stress * adaptation_factor * 0.1 # 체력은 훈련 부하에 비례해 천천히 증가
 
+        # 퍼포먼스(경기력) = 체력 - 피로
+        performance = fitness - fatigue
+        
+        # --- 3. 계획 저장 ---
+        workout_name = random.choice(trainings[workout_type])
         plan.append({
             "날짜": day.strftime("%Y-%m-%d"),
             "요일": day.strftime("%a"),
             "단계": phase,
             "훈련 내용": workout_name,
-            "훈련 강도": training_intensity,
-            "예상 퍼포먼스": round(performance_level, 1),
+            "훈련 강도": training_stress, # 훈련 강도를 Training Stress로 사용
+            "예상 퍼포먼스": round(performance, 1),
             "상세 가이드": get_detailed_guide(workout_name)
         })
 
     return pd.DataFrame(plan)
+
 
 def get_intuitive_df(df):
     """데이터프레임을 직관적으로 표시하기 위해 변환"""
     df_display = df.copy()
     
     def map_intensity(intensity):
-        if intensity > 15: return "매우 높음 🔴"
-        if intensity > 10: return "높음 🟠"
+        if intensity > 25: return "매우 높음 🔴"
+        if intensity > 15: return "높음 🟠"
         if intensity > 0: return "보통 🟡"
         return "회복 🟢"
     df_display["강도 수준"] = df_display["훈련 강도"].apply(map_intensity)
 
+    # 퍼포먼스 레벨을 0-100 사이로 정규화하여 표시
+    min_perf = df_display["예상 퍼포먼스"].min()
+    max_perf = df_display["예상 퍼포먼스"].max()
     def map_performance(perf):
-        blocks = int(perf / 15)
+        normalized_perf = (perf - min_perf) / (max_perf - min_perf) * 100 if (max_perf - min_perf) > 0 else 50
+        blocks = int(normalized_perf / 10)
         return "■" * blocks + "□" * (10 - blocks)
     df_display["퍼포먼스 레벨"] = df_display["예상 퍼포먼스"].apply(map_performance)
     
@@ -239,7 +259,7 @@ def plot_performance_graph(df):
     )
 
     fig.update_layout(
-        title_text='예상 퍼포먼스와 훈련 강도 변화 (과부하-초과회복 모델)',
+        title_text='예상 퍼포먼스와 훈련 강도 변화 (Fitness-Fatigue 모델)',
         legend=dict(x=0.01, y=0.98, bgcolor='rgba(255,255,255,0.6)')
     )
     # Y축 제목 설정
@@ -331,4 +351,3 @@ if submitted:
                         <button id="save-img-btn" onclick="captureAndDownload()" style="width:100%; padding:12px; font-size:16px; font-weight:bold; color:white; background-color:#28a745; border:none; border-radius:5px; cursor:pointer;">📸 이미지로 저장</button>
                     """
                     components.html(save_image_html, height=50)
-
