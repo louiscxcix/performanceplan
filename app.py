@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import date, timedelta
+from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import numpy as np
 import streamlit.components.v1 as components
@@ -12,7 +13,7 @@ import random
 # --- 1. 앱 기본 설정 및 페이지 구성 ---
 st.set_page_config(
     page_title="Peak Performance Planner (AI)",
-    page_icon="�",
+    page_icon="🤖",
     layout="wide"
 )
 
@@ -28,7 +29,7 @@ try:
     st.sidebar.success("API 키가 성공적으로 연결되었습니다!", icon="✅")
 except (KeyError, FileNotFoundError):
     # 로컬에서 실행하거나 secrets 설정이 안 된 경우
-    st.sidebar.error("API 키를 찾을 수 없습니다.", icon="🚨")
+    st.sidebar.error("API 키를 찾을 수 없습니다.", icon="�")
     st.sidebar.info("이 앱을 배포하려면 Streamlit Cloud의 'Settings > Secrets'에 아래 내용을 추가해야 합니다.")
     st.sidebar.code("GEMINI_API_KEY = 'YOUR_GOOGLE_AI_API_KEY'")
 
@@ -36,9 +37,12 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("Made with ❤️ by Gemini")
 
 
-# --- 3. Gemini 분석 함수 ---
-def analyze_training_request_with_gemini(user_text):
-    """Gemini API를 사용하여 사용자의 텍스트를 분석하고 훈련 목록을 JSON으로 반환"""
+# --- 3. Gemini 분석 함수 (수정됨) ---
+def analyze_training_request_with_gemini(user_text, goal):
+    """
+    Gemini API를 사용하여 사용자의 텍스트를 분석하고,
+    필요한 훈련을 추가하여 훈련 목록을 JSON으로 반환
+    """
     if not GEMINI_API_KEY:
         st.error("API 키가 설정되지 않아 AI 분석을 수행할 수 없습니다.")
         return None
@@ -46,19 +50,21 @@ def analyze_training_request_with_gemini(user_text):
     model = genai.GenerativeModel('gemini-1.5-flash')
     
     prompt = f"""
-    당신은 스포츠 과학 및 훈련 계획 전문가입니다. 사용자가 입력한 훈련 계획 설명을 분석하여, 훈련 종류와 해당 훈련의 강도를 JSON 형식으로 추출해주세요.
+    당신은 엘리트 선수들을 코칭하는 세계적인 스포츠 과학 전문가입니다. 사용자가 입력한 목표와 훈련 설명을 분석하여, 최적의 성과를 위한 종합 훈련 프로그램을 구성해주세요.
 
-    **분석 가이드라인:**
-    1.  사용자의 텍스트에서 핵심적인 훈련 활동들을 모두 찾아냅니다. (예: 인터벌, 지속주, 조깅, 근력 운동, 휴식 등)
-    2.  각 훈련 활동의 성격을 파악하여 '고강도', '중강도', '저강도', '휴식' 중 하나로 분류합니다.
-        - '고강도': 단거리 전력 질주, 인터벌, 고중량 근력 운동, 시합 페이스 훈련 등
-        - '중강도': 지속주, 템포 런, 장거리 달리기, 일반적인 근력 운동 등
-        - '저강도': 회복 조깅, 가벼운 스트레칭, 기술 훈련 등
-        - '휴식': 완전 휴식, 수면 등
-    3.  결과를 반드시 아래의 JSON 형식에 맞춰 다른 설명 없이 JSON 코드만 반환해주세요.
+    **분석 및 구성 가이드라인:**
+    1.  **사용자 요청 분석:** 사용자가 명시적으로 요청한 훈련 활동들을 모두 추출합니다.
+    2.  **전문가적 판단으로 훈련 추가:** 사용자의 목표('{goal}')를 고려할 때, 명시적으로 언급되지 않았지만 필수적인 보조 훈련들을 **반드시 추가**해주세요. (예: 마라톤 준비 시 '코어 근력 운동'이나 '유연성 스트레칭' 추가, 근력 운동 시 '유산소 운동' 추가 등)
+    3.  **강도 분류:** 추출하고 추가한 모든 훈련 활동의 성격을 '고강도', '중강도', '저강도', '휴식' 중 하나로 정확히 분류합니다.
+        - '고강도': 최대 심박수에 근접하는 활동, 인터벌, 고중량 웨이트, 전력 질주.
+        - '중강도': 대화는 가능하지만 노래는 힘든 수준의 활동, 템포 런, 장거리 달리기.
+        - '저강도': 심박수가 편안한 수준의 활동, 회복 조깅, 기술 훈련, 스트레칭.
+        - '휴식': 완전 휴식, 명상, 가벼운 산책.
+    4.  **JSON 형식으로 최종 출력:** 결과를 반드시 아래의 JSON 형식에 맞춰 다른 설명 없이 JSON 코드만 반환해주세요.
 
-    **사용자 입력:**
-    "{user_text}"
+    **사용자 정보:**
+    - **목표:** {goal}
+    - **훈련 설명:** {user_text}
 
     **출력 JSON 형식:**
     {{
@@ -71,7 +77,6 @@ def analyze_training_request_with_gemini(user_text):
     
     try:
         response = model.generate_content(prompt)
-        # 마크다운 코드 블록 제거
         cleaned_text = re.sub(r'```json\n|```', '', response.text).strip()
         parsed_json = json.loads(cleaned_text)
         return parsed_json.get("trainings", [])
@@ -79,7 +84,7 @@ def analyze_training_request_with_gemini(user_text):
         st.error(f"AI 분석 중 오류가 발생했습니다: {e}")
         return None
 
-# --- 4. 과부하-초과회복 모델 기반 계획 생성 로직 ---
+# --- 4. 과부하-초과회복 모델 기반 계획 생성 로직 (수정됨) ---
 
 def get_trainings_by_intensity(training_list):
     """Helper to categorize trainings."""
@@ -101,9 +106,10 @@ def get_detailed_guide(workout_name):
         "지속주": ["일정한 페이스를 유지하는 것이 핵심입니다.", "호흡이 너무 가빠지지 않는 선에서 속도를 조절하세요.", "마치 시합의 일부를 미리 달려보는 것처럼 집중해보세요."],
         "근력 운동": ["정확한 자세가 부상 방지와 효과의 핵심입니다.", "목표 부위의 근육 자극을 느끼며 천천히 수행하세요.", "세트 사이 휴식은 1~2분 이내로 조절하세요."],
         "회복 조깅": ["옆 사람과 편안히 대화할 수 있을 정도의 속도를 유지하세요.", "몸의 소리에 귀 기울이며 굳은 근육을 풀어주는 느낌으로 달리세요.", "시간이나 거리에 얽매이지 말고 편안하게 수행하세요."],
-        "휴식": ["충분한 수면(7-8시간)은 최고의 회복입니다.", "가벼운 산책이나 스트레칭으로 혈액순환을 도우세요.", "훈련에 대한 생각은 잠시 잊고 편안한 마음을 가지세요."]
+        "휴식": ["충분한 수면(7-8시간)은 최고의 회복입니다.", "가벼운 산책이나 스트레칭으로 혈액순환을 도우세요.", "훈련에 대한 생각은 잠시 잊고 편안한 마음을 가지세요."],
+        "스트레칭": ["근육의 이완을 느끼며 15초 이상 유지하세요.", "호흡을 멈추지 말고, 길게 내쉬면서 스트레칭하세요.", "훈련 전에는 동적, 훈련 후에는 정적 스트레칭이 효과적입니다."],
+        "코어": ["배에 힘을 주고 허리가 구부러지지 않도록 유지하세요.", "동작은 천천히, 자극에 집중하며 수행하세요.", "강력한 코어는 모든 움직임의 시작입니다."]
     }
-    # workout_name에 포함된 키워드로 가이드 선택
     for key, guides in guide_book.items():
         if key in workout_name:
             return random.choice(guides)
@@ -111,60 +117,69 @@ def get_detailed_guide(workout_name):
 
 
 def generate_dynamic_plan(total_days, date_range, trainings):
-    """과부하-초과회복 모델을 적용한 동적 계획 생성 함수"""
+    """과부하-초과회복 모델 및 피킹 전략을 적용한 동적 계획 생성 함수"""
     performance_level = 100.0
     plan = []
     
-    # 강도별 피로도 및 회복량 정의
     intensity_map = {'고강도': 20, '중강도': 12, '저강도': 5, '휴식': 0}
     recovery_rate = 10 
-    supercompensation_bonus = 1.05 # 초과회복 보너스
+    supercompensation_bonus = 1.05
 
     consecutive_training_days = 0
 
     for i, day in enumerate(date_range):
-        # 주기화 단계 결정
         progress = i / total_days
-        if progress < 0.6: phase = "준비기"
-        elif progress < 0.9: phase = "시합기"
-        else: phase = "테이퍼링"
+        remaining_days = total_days - i
 
-        # 훈련/휴식 결정 로직
-        # 준비기/시합기: 2~3일 훈련 후 1일 회복
-        # 테이퍼링: 1일 훈련 후 1~2일 회복
-        # 퍼포먼스가 너무 낮으면 강제 휴식
-        force_rest = (performance_level < 70)
+        # --- Tapering (피킹) 전략 강화 ---
+        if remaining_days <= 14:
+            phase = "테이퍼링"
+            # D-1, D-2는 완전 휴식 또는 매우 가벼운 활동
+            if remaining_days <= 2:
+                workout_type = '휴식'
+            # D-3은 마지막 컨디션 점검 (짧은 고강도)
+            elif remaining_days == 3:
+                workout_type = '고강도'
+            # 그 외 테이퍼링 기간: 휴식과 저강도 비중 대폭 증가
+            else:
+                workout_type = '저강도' if random.random() > 0.3 else '휴식'
+            consecutive_training_days = 0
         
-        if phase == "테이퍼링":
-            should_train = (consecutive_training_days == 0)
+        # --- 일반 주기화 로직 ---
         else:
+            if progress < 0.6: phase = "준비기"
+            else: phase = "시합기"
+            
+            force_rest = (performance_level < 70 and consecutive_training_days > 0)
             should_train = (consecutive_training_days < random.choice([2, 3]))
 
-        if force_rest or not should_train:
-            workout_type = '저강도' if random.random() > 0.5 else '휴식'
-            consecutive_training_days = 0
-        else:
-            consecutive_training_days += 1
-            if phase == "준비기":
-                workout_type = '중강도' if random.random() > 0.3 else '고강도'
-            elif phase == "시합기":
-                workout_type = '고강도' if random.random() > 0.4 else '중강도'
-            else: # Tapering
-                workout_type = '저강도'
+            if force_rest or not should_train:
+                workout_type = '저강도' if random.random() > 0.5 else '휴식'
+                consecutive_training_days = 0
+            else:
+                consecutive_training_days += 1
+                if phase == "준비기":
+                    workout_type = '중강도' if random.random() > 0.3 else '고강도'
+                else: # 시합기
+                    workout_type = '고강도' if random.random() > 0.4 else '중강도'
 
         # 훈련 및 퍼포먼스 계산
         workout_name = random.choice(trainings[workout_type])
         training_intensity = intensity_map[workout_type]
         
-        if training_intensity > 0: # 훈련일
+        # 테이퍼링 기간에는 볼륨 감소
+        if phase == "테이퍼링" and workout_type == '고강도':
+            training_intensity *= 0.5 # 강도는 유지하되, 볼륨(피로도)은 절반으로
+
+        if training_intensity > 0:
             fatigue = training_intensity * (1 + random.uniform(-0.1, 0.1))
             performance_level -= fatigue
-        else: # 휴식/저강도일
+        else:
             performance_level += recovery_rate
-            if performance_level > 100: # 초과회복 적용
+            if performance_level > 100:
                  performance_level *= supercompensation_bonus
 
-        performance_level = max(50, min(performance_level, 150)) # 퍼포먼스 레벨 범위 제한
+        performance_level = max(50, min(performance_level, 150))
 
         plan.append({
             "날짜": day.strftime("%Y-%m-%d"),
@@ -182,7 +197,6 @@ def get_intuitive_df(df):
     """데이터프레임을 직관적으로 표시하기 위해 변환"""
     df_display = df.copy()
     
-    # 강도를 텍스트와 이모지로 변환
     def map_intensity(intensity):
         if intensity > 15: return "매우 높음 🔴"
         if intensity > 10: return "높음 🟠"
@@ -190,7 +204,6 @@ def get_intuitive_df(df):
         return "회복 🟢"
     df_display["강도 수준"] = df_display["훈련 강도"].apply(map_intensity)
 
-    # 퍼포먼스를 막대그래프로 변환
     def map_performance(perf):
         blocks = int(perf / 15)
         return "■" * blocks + "□" * (10 - blocks)
@@ -200,32 +213,39 @@ def get_intuitive_df(df):
 
 
 def plot_performance_graph(df):
-    """새로운 주기화 그래프 (훈련 강도와 예상 퍼포먼스)"""
-    fig = go.Figure()
+    """이중 Y축을 사용하여 그래프 가독성 개선"""
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-    # 예상 퍼포먼스 레벨 (Line Chart)
-    fig.add_trace(go.Scatter(
-        x=df['날짜'], y=df['예상 퍼포먼스'],
-        mode='lines', name='예상 퍼포먼스 레벨',
-        line=dict(color='royalblue', width=4),
-        fill='tozeroy'
-    ))
+    # 예상 퍼포먼스 레벨 (Line Chart, 왼쪽 Y축)
+    fig.add_trace(
+        go.Scatter(
+            x=df['날짜'], y=df['예상 퍼포먼스'],
+            name='예상 퍼포먼스 레벨',
+            line=dict(color='royalblue', width=4),
+            fill='tozeroy'
+        ),
+        secondary_y=False,
+    )
 
-    # 훈련 강도 (Bar Chart)
-    fig.add_trace(go.Bar(
-        x=df['날짜'], y=df['훈련 강도'],
-        name='훈련 강도 (피로도)',
-        marker_color='crimson',
-        opacity=0.6
-    ))
+    # 훈련 강도 (Bar Chart, 오른쪽 Y축)
+    fig.add_trace(
+        go.Bar(
+            x=df['날짜'], y=df['훈련 강도'],
+            name='훈련 강도 (피로도)',
+            marker_color='crimson',
+            opacity=0.6
+        ),
+        secondary_y=True,
+    )
 
     fig.update_layout(
-        title='예상 퍼포먼스와 훈련 강도 변화 (과부하-초과회복 모델)',
-        xaxis_title='날짜',
-        yaxis_title='레벨',
-        legend=dict(x=0.01, y=0.98, bgcolor='rgba(255,255,255,0.6)'),
-        yaxis_range=[0, df['예상 퍼포먼스'].max() * 1.1]
+        title_text='예상 퍼포먼스와 훈련 강도 변화 (과부하-초과회복 모델)',
+        legend=dict(x=0.01, y=0.98, bgcolor='rgba(255,255,255,0.6)')
     )
+    # Y축 제목 설정
+    fig.update_yaxes(title_text="<b>퍼포먼스 레벨</b>", secondary_y=False)
+    fig.update_yaxes(title_text="<b>훈련 강도</b>", secondary_y=True)
+    
     return fig
 
 
@@ -249,7 +269,7 @@ with st.form("main_form"):
     
     submitted = st.form_submit_button("🚀 AI 훈련 계획 생성하기", type="primary", use_container_width=True)
 
-# --- 6. 결과 출력 (수정된 부분) ---
+# --- 6. 결과 출력 ---
 if submitted:
     if not GEMINI_API_KEY:
         st.error("앱을 사용하려면 먼저 사이드바에서 API 키 설정을 확인해주세요.")
@@ -259,7 +279,7 @@ if submitted:
         st.error("오류: 훈련 시작일은 목표일보다 이전이어야 합니다.")
     else:
         with st.spinner('AI가 당신의 계획을 분석하고 최적의 스케줄을 생성 중입니다...'):
-            training_list = analyze_training_request_with_gemini(user_description)
+            training_list = analyze_training_request_with_gemini(user_description, goal_name)
             
             if training_list:
                 st.success("✅ AI 분석 완료! 훈련 계획을 생성합니다.")
@@ -270,12 +290,10 @@ if submitted:
                 plan_df = generate_dynamic_plan(total_days, date_range, trainings)
                 display_df = get_intuitive_df(plan_df)
 
-                # --- 이미지 캡처를 위한 영역 시작 ---
                 st.markdown('<div id="capture-area" style="background-color: white; padding: 20px; border-radius: 10px; border: 1px solid #ddd;">', unsafe_allow_html=True)
                 
                 st.header(f"🎯 '{goal_name}' 최종 훈련 계획")
                 
-                # 그래프와 캘린더를 탭 없이 순서대로 표시
                 st.subheader("📊 주기화 그래프")
                 st.plotly_chart(plot_performance_graph(plan_df), use_container_width=True)
                 
@@ -283,11 +301,9 @@ if submitted:
                 st.dataframe(display_df, use_container_width=True, height=500)
                 
                 st.markdown('</div>', unsafe_allow_html=True)
-                # --- 이미지 캡처를 위한 영역 끝 ---
                 
-                st.write("") # 여백
+                st.write("") 
                 
-                # --- 다운로드 버튼들 ---
                 col1, col2 = st.columns(2)
                 with col1:
                     csv = display_df.to_csv(index=False).encode('utf-8-sig')
@@ -315,3 +331,4 @@ if submitted:
                         <button id="save-img-btn" onclick="captureAndDownload()" style="width:100%; padding:12px; font-size:16px; font-weight:bold; color:white; background-color:#28a745; border:none; border-radius:5px; cursor:pointer;">📸 이미지로 저장</button>
                     """
                     components.html(save_image_html, height=50)
+
