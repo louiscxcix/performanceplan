@@ -8,11 +8,19 @@ import json
 import re
 import random
 from calendar import monthrange
+from PIL import Image
 
 # --- 1. 앱 기본 설정 및 페이지 구성 ---
+try:
+    # 사용자 지정 아이콘 로드 시도
+    icon = Image.open("icon.png")
+except FileNotFoundError:
+    # 파일을 찾지 못하면 기본 이모지 사용
+    icon = "🤖"
+
 st.set_page_config(
     page_title="Peak Performance Planner (AI)",
-    page_icon="🤖",
+    page_icon=icon,
     layout="wide"
 )
 
@@ -27,10 +35,11 @@ st.markdown("""
         font-family: 'Helvetica', sans-serif;
     }
 
-    /* Remove default Streamlit padding and center the content */
+    /* Responsive main container with improved padding */
     .block-container {
-        padding: 2rem 1rem 1rem 1rem !important;
-        max-width: 550px; 
+        max-width: 550px;
+        margin: 0 auto; /* Ensure content is always centered */
+        padding: 2rem 1.5rem 5rem 1.5rem !important; /* Increased side padding for better spacing */
     }
 
     /* Form and Input styling */
@@ -43,7 +52,8 @@ st.markdown("""
         box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
     }
 
-    .stTextInput > div, .stTextArea > div, .stSelectbox > div {
+    /* Apply styles to all input widgets including date picker */
+    .stTextInput > div, .stTextArea > div, .stDateInput > div, .stSelectbox > div {
         background-color: rgba(13, 125, 163, 0.04);
         border: 1px solid rgba(13, 125, 163, 0.04);
         border-radius: 12px;
@@ -52,6 +62,7 @@ st.markdown("""
     
     .stTextInput > div > div > input,
     .stTextArea > div > textarea,
+    .stDateInput > div > div > input,
     .stSelectbox > div > div {
         background-color: transparent !important;
         border: none !important;
@@ -62,6 +73,7 @@ st.markdown("""
     /* Focus effect */
     .stTextInput > div:focus-within,
     .stTextArea > div:focus-within,
+    .stDateInput > div:focus-within,
     .stSelectbox > div:focus-within {
         border: 1px solid #2BA7D1;
         box-shadow: none;
@@ -70,6 +82,7 @@ st.markdown("""
     /* Label styling */
     .stTextInput > label,
     .stTextArea > label,
+    .stDateInput > label,
     .stSelectbox > label {
         color: #86929A !important;
         font-size: 12px !important;
@@ -347,8 +360,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# --- Custom Date Picker Function ---
-def custom_date_input(label, default_date):
+# --- UPDATED Custom Date Picker Function ---
+def custom_date_input(label, default_date, key_prefix):
     st.markdown(f"<label style='color: #86929A !important; font-size: 12px !important; font-family: Helvetica, sans-serif; padding: 0px 12px 0px 0px !important;'>{label}</label>", unsafe_allow_html=True)
     
     current_year = date.today().year
@@ -366,9 +379,9 @@ def custom_date_input(label, default_date):
 
     c1, c2, c3 = st.columns(3)
     with c1:
-        selected_year = st.selectbox("Year", years, index=year_index, label_visibility="collapsed")
+        selected_year = st.selectbox("Year", years, index=year_index, label_visibility="collapsed", key=f"{key_prefix}_year")
     with c2:
-        selected_month = st.selectbox("Month", months, format_func=lambda x: f"{x}월", index=month_index, label_visibility="collapsed")
+        selected_month = st.selectbox("Month", months, format_func=lambda x: f"{x}월", index=month_index, label_visibility="collapsed", key=f"{key_prefix}_month")
     
     days_in_month = monthrange(selected_year, selected_month)[1]
     days = list(range(1, days_in_month + 1))
@@ -376,10 +389,10 @@ def custom_date_input(label, default_date):
     try:
         day_index = days.index(default_date.day)
     except ValueError:
-        day_index = len(days) -1 
+        day_index = len(days) - 1 
     
     with c3:
-        selected_day = st.selectbox("Day", days, index=day_index, label_visibility="collapsed")
+        selected_day = st.selectbox("Day", days, index=day_index, label_visibility="collapsed", key=f"{key_prefix}_day")
     
     try:
         return date(selected_year, selected_month, selected_day)
@@ -388,18 +401,19 @@ def custom_date_input(label, default_date):
 
 
 with st.form("main_form"):
-    goal_name = st.text_input("훈련 목표 이름", "2025 마라톤 대회 준비")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        start_day = custom_date_input("시작일", date.today())
-    with col2:
-        d_day = custom_date_input("종료일", date.today() + timedelta(days=90))
+    with st.container():
+        goal_name = st.text_input("훈련 목표 이름", "2025 마라톤 대회 준비")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            start_day = custom_date_input("시작일", date.today(), key_prefix="start")
+        with col2:
+            d_day = custom_date_input("종료일", date.today() + timedelta(days=90), key_prefix="end")
 
-    user_description = st.text_area(
-        "훈련 목표 계획을 설명해 주세요",
-        "어떤 훈련을 계획하고 계신가요? AI가 분석할 수 있도록 자유롭게 설명해주세요."
-    )
+        user_description = st.text_area(
+            "훈련 목표 계획을 설명해 주세요",
+            "어떤 훈련을 계획하고 계신가요? AI가 분석할 수 있도록 자유롭게 설명해주세요."
+        )
     
     submitted = st.form_submit_button("다 음")
 
