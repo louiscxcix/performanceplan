@@ -289,15 +289,17 @@ def create_performance_chart(df):
         hovertemplate='<span style="font-size:12px;">%{x|%m월 %d일}</span><br><span style="color:#2BA7D1; font-size:14px;">■</span><span style="font-size:14px;"> <b>%{y}</b></span><extra></extra>'
     ))
     fig.update_layout(
+        height=350, # 그래프 높이 조절
         title=None, xaxis_title=None, yaxis_title="레벨", plot_bgcolor='white', paper_bgcolor='white',
         font=dict(family="Helvetica, sans-serif", size=12, color="#86929A"),
         showlegend=False, margin=dict(l=40, r=20, t=5, b=20),
         xaxis=dict(showgrid=False, showline=True, linecolor='#E8E8E8', tickformat='%m/%d',
-                   rangeslider_visible=True, rangeslider=dict(visible=True, bgcolor='rgba(232, 232, 232, 0.3)', bordercolor='rgba(0,0,0,0)', thickness=0.1)),
+                   rangeslider_visible=False), # 레인지 슬라이더 비활성화
         yaxis=dict(showgrid=True, gridcolor='#E8E8E8'),
         hoverlabel=dict(bgcolor="#0D1628", font_size=14, font_color="white", bordercolor="rgba(0,0,0,0)", font_family="Helvetica, sans-serif"),
         hovermode='x unified'
     )
+    # 초기 줌 레벨 설정 (전체 기간이 7일 이상일 경우)
     if len(df) > 7:
         fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[6]])
     return fig
@@ -307,21 +309,23 @@ def create_intensity_chart(df, level_map):
     fig = go.Figure()
     fig.add_trace(go.Bar(
         x=df['날짜'], y=df['훈련 강도 레벨'], name='훈련 강도',
-        marker=dict(color='#EE7D8D', cornerradius=16), width=0.6,
+        marker=dict(color='#EE7D8D', cornerradius=16),
         customdata=df['강도 설명'],
         hovertemplate='<span style="font-size:12px;">%{x|%m월 %d일}</span><br><span style="color:#EE7D8D; font-size:14px;">■</span><span style="font-size:14px;"> <b>%{customdata} (Lvl:%{y})</b></span><extra></extra>'
     ))
     fig.update_layout(
+        height=350, # 그래프 높이 조절
         title=None, xaxis_title=None, yaxis_title=None, plot_bgcolor='white', paper_bgcolor='white',
         font=dict(family="Helvetica, sans-serif", size=11, color="#86929A"),
         showlegend=False, margin=dict(l=25, r=20, t=5, b=20),
         xaxis=dict(showgrid=False, showline=True, linecolor='#E8E8E8', tickformat='%m/%d', tickfont=dict(size=11),
-                   rangeslider_visible=True, rangeslider=dict(visible=True, bgcolor='rgba(232, 232, 232, 0.3)', bordercolor='rgba(0,0,0,0)', thickness=0.1)),
+                   rangeslider_visible=False), # 레인지 슬라이더 비활성화
         yaxis=dict(showgrid=False, showticklabels=True, tickmode='array', tickvals=list(range(0, 8)), ticktext=[str(i) for i in range(0, 8)],
                    range=[0, 7.5], zeroline=False, tickfont=dict(size=9)),
         hoverlabel=dict(bgcolor="#0D1628", font_size=12, font_color="white", bordercolor="rgba(0,0,0,0)", font_family="Helvetica, sans-serif"),
-        hovermode='x unified', bargap=0.3
+        hovermode='x unified', bargap=0.4 # Adjust bargap to control spacing
     )
+    # 초기 줌 레벨 설정 (전체 기간이 7일 이상일 경우)
     if len(df) > 7:
         fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[6]])
     return fig
@@ -419,7 +423,7 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
     display_df = st.session_state.display_df
     level_map = st.session_state.level_map
 
-    st.markdown('<div id="capture-area" style="background-color: white; padding: 20px; border-radius: 10px; border: 1px solid #ddd;">', unsafe_allow_html=True)
+    st.markdown('<div id="capture-area" style="background-color: white; padding: 30px 20px 20px 20px; border-radius: 10px; border: 1px solid #ddd;">', unsafe_allow_html=True)
     st.header(f"🎯 '{goal_name}' 최종 훈련 계획")
     
     st.subheader("📊 주기화 그래프")
@@ -432,7 +436,7 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
             padding: 4px; 
             border-radius: 12px; 
             justify-content: center; 
-            outline: 1px rgba(12.55, 124.74, 162.74, 0.04) solid;
+            outline: 1px solid rgba(12, 124, 162, 0.04);
         }
         div.stRadio > div > label { 
             flex: 1; 
@@ -448,7 +452,7 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
         div.stRadio > div > label > div { 
             display: inline; 
             font-size: 12px;
-            font-family: 'Helvetica';
+            font-family: 'Helvetica', sans-serif;
             font-weight: 400;
         }
         div.stRadio input[type="radio"] { 
@@ -459,7 +463,7 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
             box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.02); 
             color: #0D1628; 
             font-weight: 600; 
-            border: 0.5px #F7F7F7 solid;
+            border: 0.5px solid #F7F7F7;
         }
         div.stRadio div:has(input[type="radio"]:not(:checked)) > label { 
             background: transparent; 
