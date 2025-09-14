@@ -1,14 +1,13 @@
 import streamlit as st
 import pandas as pd
 from datetime import date, timedelta
-from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-import numpy as np
 import streamlit.components.v1 as components
 import google.generativeai as genai
 import json
 import re
 import random
+from calendar import monthrange
 
 # --- 1. 앱 기본 설정 및 페이지 구성 ---
 st.set_page_config(
@@ -17,34 +16,129 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🤖 AI Peak Performance Planner")
-st.write("당신의 훈련 목표를 자연어로 설명해주세요. AI가 주기화 이론에 맞춰 최적의 계획을 생성해 드립니다.")
+# --- NEW UI STYLES ---
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Helvetica:wght@400;700&display=swap');
+
+    /* General body styling */
+    .stApp {
+        background: #F1F2F5;
+        font-family: 'Helvetica', sans-serif;
+    }
+
+    /* Remove default Streamlit padding and center the content */
+    .block-container {
+        padding: 2rem 1rem 1rem 1rem !important;
+        max-width: 550px; 
+    }
+
+    /* Form and Input styling */
+    .stForm {
+        border: none;
+        padding: 0;
+        background: white;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .stTextInput > div, .stTextArea > div, .stSelectbox > div {
+        background-color: rgba(13, 125, 163, 0.04);
+        border: 1px solid rgba(13, 125, 163, 0.04);
+        border-radius: 12px;
+        overflow: hidden; 
+    }
+    
+    .stTextInput > div > div > input,
+    .stTextArea > div > textarea,
+    .stSelectbox > div > div {
+        background-color: transparent !important;
+        border: none !important;
+        color: #0D1628;
+        line-height: 1.5;
+    }
+    
+    /* Focus effect */
+    .stTextInput > div:focus-within,
+    .stTextArea > div:focus-within,
+    .stSelectbox > div:focus-within {
+        border: 1px solid #2BA7D1;
+        box-shadow: none;
+    }
+
+    /* Label styling */
+    .stTextInput > label,
+    .stTextArea > label,
+    .stSelectbox > label {
+        color: #86929A !important;
+        font-size: 12px !important;
+        font-family: 'Helvetica', sans-serif;
+        padding: 10px 12px 0px 12px !important;
+        margin-bottom: -5px; 
+    }
+
+    /* Specific adjustments for custom date picker */
+     div[data-testid="stHorizontalBlock"] .stSelectbox > label {
+        margin-bottom: -15px !important; 
+    }
+    
+    .stTextArea > div > textarea {
+        min-height: 120px;
+    }
+    .stTextArea small {
+        color: #86929A;
+        font-size: 10px;
+        font-family: 'Helvetica', sans-serif;
+        font-weight: 400;
+        padding-left: 5px;
+        padding-top: 12px;
+    }
+
+    /* Submit Button Styling */
+    .stButton > button {
+        width: 100%;
+        padding: 14px 36px;
+        background: #2BA7D1;
+        box-shadow: 0px 5px 10px rgba(26, 26, 26, 0.10);
+        border-radius: 12px;
+        color: white;
+        font-size: 14px;
+        font-family: 'Helvetica', sans-serif;
+        font-weight: 400;
+        border: none;
+        margin-top: 20px;
+    }
+    .stButton > button:hover {
+        background: #2490b4;
+        color: white;
+        border: none;
+    }
+    
+    /* Hide the default Streamlit header/footer */
+    header, footer {
+        visibility: hidden;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # --- 2. Gemini API 키 설정 (Streamlit Secrets 활용) ---
-GEMINI_API_KEY = None # API 키 변수 초기화
+GEMINI_API_KEY = None 
 try:
-    # Streamlit Cloud에 배포된 경우 secrets.toml에서 키를 가져옴
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=GEMINI_API_KEY)
-    st.sidebar.success("API 키가 성공적으로 연결되었습니다!", icon="✅")
 except (KeyError, FileNotFoundError):
-    # 로컬에서 실행하거나 secrets 설정이 안 된 경우
-    st.sidebar.error("API 키를 찾을 수 없습니다.", icon="🚨")
-    st.sidebar.info("이 앱을 배포하려면 Streamlit Cloud의 'Settings > Secrets'에 아래 내용을 추가해야 합니다.")
-    st.sidebar.code("GEMINI_API_KEY = 'YOUR_GOOGLE_AI_API_KEY'")
+    # This will be handled gracefully when the form is submitted
+    pass
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("Made with ❤️ by Gemini")
-
-
-# --- 3. Gemini 분석 함수 (수정됨) ---
+# --- 3. Gemini 분석 함수 (7단계 강도 시스템 적용) ---
 def analyze_training_request_with_gemini(user_text, goal):
     """
     Gemini API를 사용하여 사용자의 텍스트를 분석하고,
-    필요한 훈련을 추가하여 훈련 목록을 JSON으로 반환
+    훈련 목록을 7단계 강도 레벨과 함께 JSON으로 반환
     """
     if not GEMINI_API_KEY:
-        st.error("API 키가 설정되지 않아 AI 분석을 수행할 수 없습니다.")
+        st.error("API 키가 설정되지 않았습니다. Streamlit Cloud의 'Settings > Secrets'에서 API 키를 설정해주세요.")
         return None
         
     model = genai.GenerativeModel('gemini-1.5-flash')
@@ -54,12 +148,15 @@ def analyze_training_request_with_gemini(user_text, goal):
 
     **분석 및 구성 가이드라인:**
     1.  **사용자 요청 분석:** 사용자가 명시적으로 요청한 훈련 활동들을 모두 추출합니다.
-    2.  **전문가적 판단으로 훈련 추가:** 사용자의 목표('{goal}')와 종목 특성을 고려할 때, 명시적으로 언급되지 않았지만 필수적인 보조 훈련들을 **반드시 추가**해주세요. (예: 마라톤 준비 시 '코어 근력 운동'이나 '유연성 스트레칭' 추가, 근력 운동 시 '유산소 운동' 추가 등)
-    3.  **강도 분류:** 추출하고 추가한 모든 훈련 활동의 성격을 '고강도', '중강도', '저강도', '휴식' 중 하나로 정확히 분류합니다.
-        - '고강도': 최대 심박수에 근접하는 활동, 인터벌, 고중량 웨이트, 전력 질주.
-        - '중강도': 대화는 가능하지만 노래는 힘든 수준의 활동, 템포 런, 장거리 달리기.
-        - '저강도': 심박수가 편안한 수준의 활동, 회복 조깅, 기술 훈련, 스트레칭.
-        - '휴식': 완전 휴식, 명상, 가벼운 산책.
+    2.  **전문가적 판단으로 훈련 추가:** 사용자의 목표('{goal}')와 종목 특성을 고려할 때, 필수적인 보조 훈련들을 **반드시 추가**해주세요. (예: 마라톤 준비 시 '코어 운동', '스트레칭' 추가)
+    3.  **7단계 강도 분류:** 모든 훈련 활동을 아래의 1부터 7까지의 강도 레벨 중 하나로 정확히 분류합니다.
+        - **Level 1 (완전 휴식):** 수면, 명상 등 완전한 휴식.
+        - **Level 2 (가벼운 회복):** 가벼운 산책, 회복 스트레칭.
+        - **Level 3 (기술 훈련):** 심박수 부담이 적은 기술 연습, 폼 롤링.
+        - **Level 4 (지구력 훈련):** 편안하게 대화 가능한 수준의 유산소 운동, 장거리 달리기.
+        - **Level 5 (템포 훈련):** 약간 숨이 차는 강도의 지속적인 훈련, 역치 훈련.
+        - **Level 6 (고강도 인터벌):** 최대 심박수에 근접하는 인터벌, 고중량 근력 운동.
+        - **Level 7 (최대 강도):** 시합 또는 개인 최고 기록(PR)에 도전하는 수준의 최대 노력.
     4.  **JSON 형식으로 최종 출력:** 결과를 반드시 아래의 JSON 형식에 맞춰 다른 설명 없이 JSON 코드만 반환해주세요.
 
     **사용자 정보:**
@@ -69,8 +166,8 @@ def analyze_training_request_with_gemini(user_text, goal):
     **출력 JSON 형식:**
     {{
       "trainings": [
-        {{"name": "훈련명1", "intensity": "강도"}},
-        {{"name": "훈련명2", "intensity": "강도"}}
+        {{"name": "훈련명1", "intensity_level": 레벨(숫자)}},
+        {{"name": "훈련명2", "intensity_level": 레벨(숫자)}}
       ]
     }}
     """
@@ -84,19 +181,20 @@ def analyze_training_request_with_gemini(user_text, goal):
         st.error(f"AI 분석 중 오류가 발생했습니다: {e}")
         return None
 
-# --- 4. 과부하-초과회복 모델 기반 계획 생성 로직 (전면 수정) ---
+# --- 4. 훈련 계획 생성 로직 (7단계 강도 시스템 적용) ---
 
-def get_trainings_by_intensity(training_list):
-    """Helper to categorize trainings."""
-    trainings = {
-        '고강도': [t['name'] for t in training_list if t['intensity'] == '고강도'],
-        '중강도': [t['name'] for t in training_list if t['intensity'] == '중강도'],
-        '저강도': [t['name'] for t in training_list if t['intensity'] == '저강도'],
-        '휴식': [t['name'] for t in training_list if t['intensity'] == '휴식']
-    }
-    for key in ['고강도', '중강도', '저강도', '휴식']:
-        if not trainings[key]:
-            trainings[key] = [f'{key} 훈련']
+def get_trainings_by_level(training_list):
+    """훈련 목록을 1-7 레벨별로 분류하는 함수"""
+    trainings = {level: [] for level in range(1, 8)}
+    for t in training_list:
+        level = t.get('intensity_level')
+        if level in trainings:
+            trainings[level].append(t['name'])
+    
+    level_defaults = {1: "완전 휴식", 2: "가벼운 회복", 3: "기술 훈련", 4: "지구력 훈련", 5: "템포 훈련", 6: "고강도 인터벌", 7: "최대 강도"}
+    for level, default_name in level_defaults.items():
+        if not trainings[level]:
+            trainings[level] = [default_name]
     return trainings
 
 def get_detailed_guide(workout_name):
@@ -115,28 +213,18 @@ def get_detailed_guide(workout_name):
             return random.choice(guides)
     return "자신의 몸 상태에 맞춰 무리하지 마세요."
 
-
 def generate_dynamic_plan(total_days, date_range, trainings):
-    """
-    Fitness-Fatigue 모델을 적용하여 우상향하는 퍼포먼스 곡선을 생성하고,
-    시합일에 피킹하는 동적 계획 생성 함수
-    """
-    # 모델 파라미터
-    fitness = 50.0  # 장기적인 체력 수준
-    fatigue = 50.0  # 단기적인 피로 수준
+    fitness = 50.0
+    fatigue = 50.0
     
-    # 강도별 훈련 부하(Training Load) 정의
-    # ts: Training Stress (피로도 기여), af: Adaptation Factor (체력 기여)
-    load_map = {
-        '고강도': {'ts': 30, 'af': 1.5},
-        '중강도': {'ts': 18, 'af': 1.0},
-        '저강도': {'ts': 5,  'af': 0.5},
-        '휴식':   {'ts': 0,  'af': 0}
+    level_load_map = {
+        1: {'ts': 0, 'af': 0}, 2: {'ts': 5, 'af': 0.5}, 3: {'ts': 10, 'af': 0.7},
+        4: {'ts': 18, 'af': 1.0}, 5: {'ts': 25, 'af': 1.2}, 6: {'ts': 35, 'af': 1.5},
+        7: {'ts': 45, 'af': 1.8}
     }
     
-    # 피로와 체력의 감소율 (매일 자연 감소)
-    fatigue_decay = 0.4 # 피로는 빠르게 사라짐
-    fitness_decay = 0.98 # 체력은 천천히 사라짐
+    fatigue_decay = 0.4
+    fitness_decay = 0.98
 
     plan = []
     consecutive_training_days = 0
@@ -145,82 +233,97 @@ def generate_dynamic_plan(total_days, date_range, trainings):
         progress = i / total_days
         remaining_days = total_days - i
 
-        # --- 1. 훈련 유형 결정 (주기화 및 피킹 전략) ---
-        workout_type = '휴식' # 기본값
-        
-        # 테이퍼링 기간 (마지막 10일)
+        workout_level = 1
         if remaining_days <= 10:
             phase = "테이퍼링"
-            if remaining_days in [1, 2]: workout_type = '휴식'
-            elif remaining_days == 3: workout_type = '저강도' # 컨디션 조절
-            elif remaining_days == 5: workout_type = '고강도' # 마지막 고강도 자극
-            else: workout_type = '저강도' if random.random() > 0.4 else '휴식'
+            if remaining_days == 1: workout_level = 1
+            elif remaining_days in [2, 4]: workout_level = 2
+            elif remaining_days == 3: workout_level = 3
+            elif remaining_days == 5: workout_level = 6
+            else: workout_level = random.choice([2, 3])
             consecutive_training_days = 0
-        
-        # 일반 기간
         else:
-            if progress < 0.6: phase = "준비기"
-            else: phase = "시합기"
-            
-            # 2-3일 훈련 후 1일 휴식 패턴
+            phase = "준비기" if progress < 0.6 else "시합기"
             if consecutive_training_days < random.choice([2, 3]):
                 consecutive_training_days += 1
-                if phase == "준비기":
-                    workout_type = random.choice(['중강도', '중강도', '고강도'])
-                else: # 시합기
-                    workout_type = random.choice(['고강도', '고강도', '중강도'])
+                workout_level = random.choice([4, 4, 5, 3]) if phase == "준비기" else random.choice([6, 5, 4])
             else:
-                workout_type = '저강도' if random.random() > 0.5 else '휴식'
+                workout_level = random.choice([2, 2, 3])
                 consecutive_training_days = 0
 
-        # --- 2. Fitness-Fatigue 모델 계산 ---
-        
-        # 매일 체력과 피로는 자연 감소
         fitness *= fitness_decay
         fatigue *= fatigue_decay
 
-        # 훈련 부하 적용
-        load = load_map[workout_type]
+        load = level_load_map[workout_level]
         training_stress = load['ts']
         adaptation_factor = load['af']
         
-        # 테이퍼링 기간에는 훈련 부하 감소
-        if phase == "테이퍼링" and workout_type != '휴식':
+        if phase == "테이퍼링" and workout_level > 2:
             training_stress *= 0.6
 
         fatigue += training_stress
-        fitness += training_stress * adaptation_factor * 0.1 # 체력은 훈련 부하에 비례해 천천히 증가
-
-        # 퍼포먼스(경기력) = 체력 - 피로
+        fitness += training_stress * adaptation_factor * 0.1
         performance = fitness - fatigue
         
-        # --- 3. 계획 저장 ---
-        workout_name = random.choice(trainings[workout_type])
+        workout_name = random.choice(trainings[workout_level])
         plan.append({
-            "날짜": day.strftime("%Y-%m-%d"),
-            "요일": day.strftime("%a"),
-            "단계": phase,
-            "훈련 내용": workout_name,
-            "훈련 강도": training_stress, # 훈련 강도를 Training Stress로 사용
-            "예상 퍼포먼스": round(performance, 1),
-            "상세 가이드": get_detailed_guide(workout_name)
+            "날짜": day.strftime("%Y-%m-%d"), "요일": day.strftime("%a"), "단계": phase,
+            "훈련 내용": workout_name, "훈련 강도 레벨": workout_level,
+            "예상 퍼포먼스": round(performance, 1), "상세 가이드": get_detailed_guide(workout_name)
         })
-
     return pd.DataFrame(plan)
 
+# --- 5. 시각화 함수 (스크롤 기능 추가) ---
 
-def get_intuitive_df(df):
-    """데이터프레임을 직관적으로 표시하기 위해 변환"""
+def create_performance_chart(df):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=df['날짜'], y=df['예상 퍼포먼스'], name='예상 퍼포먼스',
+        line=dict(color='#2BA7D1', width=3), fill='tozeroy',
+        fillcolor='rgba(43, 167, 209, 0.1)', mode='lines',
+        hovertemplate='<span style="font-size:12px;">%{x|%m월 %d일}</span><br><span style="color:#2BA7D1; font-size:14px;">■</span><span style="font-size:14px;"> <b>%{y}</b></span><extra></extra>'
+    ))
+    fig.update_layout(
+        title=None, xaxis_title=None, yaxis_title="레벨", plot_bgcolor='white', paper_bgcolor='white',
+        font=dict(family="Helvetica, sans-serif", size=12, color="#86929A"),
+        showlegend=False, margin=dict(l=40, r=20, t=5, b=20),
+        xaxis=dict(showgrid=False, showline=True, linecolor='#E8E8E8', tickformat='%m/%d',
+                   rangeslider_visible=True, rangeslider=dict(visible=True, bgcolor='rgba(232, 232, 232, 0.3)', bordercolor='rgba(0,0,0,0)', thickness=0.1)),
+        yaxis=dict(showgrid=True, gridcolor='#E8E8E8'),
+        hoverlabel=dict(bgcolor="#0D1628", font_size=14, font_color="white", bordercolor="rgba(0,0,0,0)", font_family="Helvetica, sans-serif"),
+        hovermode='x unified'
+    )
+    if len(df) > 7:
+        fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[6]])
+    return fig
+
+def create_intensity_chart(df, level_map):
+    df['강도 설명'] = df['훈련 강도 레벨'].map(level_map)
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=df['날짜'], y=df['훈련 강도 레벨'], name='훈련 강도',
+        marker=dict(color='#EE7D8D', cornerradius=16), width=0.6,
+        customdata=df['강도 설명'],
+        hovertemplate='<span style="font-size:12px;">%{x|%m월 %d일}</span><br><span style="color:#EE7D8D; font-size:14px;">■</span><span style="font-size:14px;"> <b>%{customdata} (Lvl:%{y})</b></span><extra></extra>'
+    ))
+    fig.update_layout(
+        title=None, xaxis_title=None, yaxis_title=None, plot_bgcolor='white', paper_bgcolor='white',
+        font=dict(family="Helvetica, sans-serif", size=11, color="#86929A"),
+        showlegend=False, margin=dict(l=25, r=20, t=5, b=20),
+        xaxis=dict(showgrid=False, showline=True, linecolor='#E8E8E8', tickformat='%m/%d', tickfont=dict(size=11),
+                   rangeslider_visible=True, rangeslider=dict(visible=True, bgcolor='rgba(232, 232, 232, 0.3)', bordercolor='rgba(0,0,0,0)', thickness=0.1)),
+        yaxis=dict(showgrid=False, showticklabels=True, tickmode='array', tickvals=list(range(0, 8)), ticktext=[str(i) for i in range(0, 8)],
+                   range=[0, 7.5], zeroline=False, tickfont=dict(size=9)),
+        hoverlabel=dict(bgcolor="#0D1628", font_size=12, font_color="white", bordercolor="rgba(0,0,0,0)", font_family="Helvetica, sans-serif"),
+        hovermode='x unified', bargap=0.3
+    )
+    if len(df) > 7:
+        fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[6]])
+    return fig
+
+def get_intuitive_df(df, level_map):
     df_display = df.copy()
-    
-    def map_intensity(intensity):
-        if intensity > 25: return "매우 높음 🔴"
-        if intensity > 15: return "높음 🟠"
-        if intensity > 0: return "보통 🟡"
-        return "회복 🟢"
-    df_display["강도 수준"] = df_display["훈련 강도"].apply(map_intensity)
-
-    # 퍼포먼스 레벨을 0-100 사이로 정규화하여 표시
+    df_display["강도 수준"] = df_display["훈련 강도 레벨"].map(level_map)
     min_perf = df_display["예상 퍼포먼스"].min()
     max_perf = df_display["예상 퍼포먼스"].max()
     def map_performance(perf):
@@ -228,107 +331,137 @@ def get_intuitive_df(df):
         blocks = int(normalized_perf / 10)
         return "■" * blocks + "□" * (10 - blocks)
     df_display["퍼포먼스 레벨"] = df_display["예상 퍼포먼스"].apply(map_performance)
-    
     return df_display[["날짜", "요일", "단계", "훈련 내용", "강도 수준", "퍼포먼스 레벨", "상세 가이드"]]
 
+# --- 6. 메인 UI 구성 (디자인 레퍼런스 적용) ---
+st.markdown("""
+<div style="align-self: stretch; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 12px; display: flex; margin-bottom: 40px;">
+  <div style="padding: 8px; background: rgba(13, 125, 163, 0.04); border-radius: 48px; display: inline-flex; align-items: center; justify-content: center;">
+      <div style="width: 52px; height: 52px; font-size: 40px; text-align: center; line-height: 52px;">🤖</div>
+  </div>
+  <div style="flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 8px; display: flex">
+    <div style="color: #0D1628; font-size: 20px; font-family: Helvetica; font-weight: 700; line-height: 32px; word-wrap: break-word">AI 시합 계획 플래너</div>
+    <div style="color: #86929A; font-size: 13px; font-family: Helvetica; font-weight: 400; line-height: 20px; word-wrap: break-word">당신의 훈련 목표를 자연어로 설명해주세요.<br/>AI가 주기화 이론에 맞춰 최적의 계획을 생성해 드립니다.</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
-def plot_performance_graph(df):
-    """이중 Y축을 사용하여 그래프 가독성 개선"""
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-    # 예상 퍼포먼스 레벨 (Line Chart, 왼쪽 Y축)
-    fig.add_trace(
-        go.Scatter(
-            x=df['날짜'], y=df['예상 퍼포먼스'],
-            name='예상 퍼포먼스 레벨',
-            line=dict(color='royalblue', width=4),
-            fill='tozeroy'
-        ),
-        secondary_y=False,
-    )
-
-    # 훈련 강도 (Bar Chart, 오른쪽 Y축)
-    fig.add_trace(
-        go.Bar(
-            x=df['날짜'], y=df['훈련 강도'],
-            name='훈련 강도 (피로도)',
-            marker_color='crimson',
-            opacity=0.6
-        ),
-        secondary_y=True,
-    )
-
-    fig.update_layout(
-        title_text='예상 퍼포먼스와 훈련 강도 변화 (Fitness-Fatigue 모델)',
-        legend=dict(x=0.01, y=0.98, bgcolor='rgba(255,255,255,0.6)')
-    )
-    # Y축 제목 설정
-    fig.update_yaxes(title_text="<b>퍼포먼스 레벨</b>", secondary_y=False)
-    fig.update_yaxes(title_text="<b>훈련 강도</b>", secondary_y=True)
+# --- Custom Date Picker Function ---
+def custom_date_input(label, default_date):
+    st.markdown(f"<label style='color: #86929A !important; font-size: 12px !important; font-family: Helvetica, sans-serif; padding: 0px 12px 0px 0px !important;'>{label}</label>", unsafe_allow_html=True)
     
-    return fig
+    current_year = date.today().year
+    years = list(range(current_year - 5, current_year + 6))
+    months = list(range(1, 13))
+    
+    try:
+        year_index = years.index(default_date.year)
+    except ValueError:
+        years.append(default_date.year)
+        years.sort()
+        year_index = years.index(default_date.year)
+
+    month_index = months.index(default_date.month)
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        selected_year = st.selectbox("Year", years, index=year_index, label_visibility="collapsed")
+    with c2:
+        selected_month = st.selectbox("Month", months, format_func=lambda x: f"{x}월", index=month_index, label_visibility="collapsed")
+    
+    days_in_month = monthrange(selected_year, selected_month)[1]
+    days = list(range(1, days_in_month + 1))
+    
+    try:
+        day_index = days.index(default_date.day)
+    except ValueError:
+        day_index = len(days) -1 
+    
+    with c3:
+        selected_day = st.selectbox("Day", days, index=day_index, label_visibility="collapsed")
+    
+    try:
+        return date(selected_year, selected_month, selected_day)
+    except ValueError:
+        return date(selected_year, selected_month, days[-1])
 
 
-# --- 5. 메인 UI 구성 ---
 with st.form("main_form"):
-    st.subheader("1. 기본 정보 설정")
-    col1, col2, col3 = st.columns(3)
+    goal_name = st.text_input("훈련 목표 이름", "2025 마라톤 대회 준비")
+    
+    col1, col2 = st.columns(2)
     with col1:
-        goal_name = st.text_input("훈련 목표 이름", "2025 마라톤 대회 준비")
+        start_day = custom_date_input("시작일", date.today())
     with col2:
-        start_day = st.date_input("훈련 시작일", date.today())
-    with col3:
-        d_day = st.date_input("목표일 (D-Day)", date.today() + timedelta(days=90))
+        d_day = custom_date_input("종료일", date.today() + timedelta(days=90))
 
-    st.subheader("2. 훈련 계획 설명")
     user_description = st.text_area(
-        "어떤 훈련을 계획하고 계신가요? AI가 분석할 수 있도록 자유롭게 설명해주세요.",
-        height=150,
-        placeholder="예시: 마라톤 풀코스를 준비하고 있습니다. 주 2회 인터벌 훈련과 주 1회 장거리 지속주를 기본으로 하고 싶어요. 중간에 하체 근력 운동도 넣고 싶고, 회복을 위한 조깅과 완전 휴식도 필요합니다."
+        "훈련 목표 계획을 설명해 주세요",
+        "어떤 훈련을 계획하고 계신가요? AI가 분석할 수 있도록 자유롭게 설명해주세요."
     )
     
-    submitted = st.form_submit_button("🚀 AI 훈련 계획 생성하기", type="primary", use_container_width=True)
+    submitted = st.form_submit_button("다 음")
 
-# --- 6. 결과 출력 ---
+# --- 7. 결과 출력 ---
 if submitted:
-    if not GEMINI_API_KEY:
-        st.error("앱을 사용하려면 먼저 사이드바에서 API 키 설정을 확인해주세요.")
-    elif not user_description:
+    if not user_description or user_description == "어떤 훈련을 계획하고 계신가요? AI가 분석할 수 있도록 자유롭게 설명해주세요.":
         st.warning("훈련 계획 설명을 입력해주세요.")
     elif start_day >= d_day:
         st.error("오류: 훈련 시작일은 목표일보다 이전이어야 합니다.")
+    elif not GEMINI_API_KEY:
+        st.error("API 키가 설정되지 않았습니다. 이 앱을 배포하는 경우 Streamlit Cloud의 'Settings > Secrets'에 API 키를 추가해주세요.")
     else:
         with st.spinner('AI가 당신의 계획을 분석하고 최적의 스케줄을 생성 중입니다...'):
             training_list = analyze_training_request_with_gemini(user_description, goal_name)
             
             if training_list:
                 st.success("✅ AI 분석 완료! 훈련 계획을 생성합니다.")
+                
+                level_map = {
+                    1: "Lvl 1: 완전 휴식 🟢", 2: "Lvl 2: 가벼운 회복 🔵", 3: "Lvl 3: 기술 훈련 🟡",
+                    4: "Lvl 4: 지구력 훈련 🟠", 5: "Lvl 5: 템포 훈련 🔴", 6: "Lvl 6: 고강도 인터벌 🟣",
+                    7: "Lvl 7: 최대 강도 🔥"
+                }
+
                 total_days = (d_day - start_day).days + 1
                 date_range = pd.to_datetime(pd.date_range(start=start_day, end=d_day))
                 
-                trainings = get_trainings_by_intensity(training_list)
+                trainings = get_trainings_by_level(training_list)
                 plan_df = generate_dynamic_plan(total_days, date_range, trainings)
-                display_df = get_intuitive_df(plan_df)
+                display_df = get_intuitive_df(plan_df, level_map)
 
                 st.markdown('<div id="capture-area" style="background-color: white; padding: 20px; border-radius: 10px; border: 1px solid #ddd;">', unsafe_allow_html=True)
-                
                 st.header(f"🎯 '{goal_name}' 최종 훈련 계획")
                 
                 st.subheader("📊 주기화 그래프")
-                st.plotly_chart(plot_performance_graph(plan_df), use_container_width=True)
+                st.markdown("""
+                <style>
+                    div.stRadio > div { display: flex; flex-direction: row; background-color: rgba(12, 124, 162, 0.04); padding: 4px; border-radius: 12px; justify-content: center; }
+                    div.stRadio > div > label { flex: 1; text-align: center; padding: 10px 4px; border-radius: 8px; margin: 0 !important; -webkit-user-select: none; -ms-user-select: none; user-select: none; }
+                    div.stRadio > div > label > div { display: inline; }
+                    div.stRadio input[type="radio"] { display: none; }
+                    div.stRadio div:has(input[type="radio"]:checked) > label { background: white; box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.02); color: #0D1628; font-weight: 600; }
+                    div.stRadio div:has(input[type="radio"]:not(:checked)) > label { background: transparent; color: #86929A; }
+                </style>
+                """, unsafe_allow_html=True)
                 
+                chart_choice = st.radio("그래프 선택", options=['예상 퍼포먼스', '훈련 강도'], horizontal=True, label_visibility='collapsed')
+
+                if chart_choice == '예상 퍼포먼스':
+                    st.plotly_chart(create_performance_chart(plan_df), use_container_width=True)
+                else:
+                    st.plotly_chart(create_intensity_chart(plan_df, level_map), use_container_width=True)
+
                 st.subheader("📅 상세 훈련 캘린더")
                 st.dataframe(display_df, use_container_width=True, height=500)
-                
                 st.markdown('</div>', unsafe_allow_html=True)
                 
-                st.write("") 
-                
+                st.write("")
                 col1, col2 = st.columns(2)
                 with col1:
                     csv = display_df.to_csv(index=False).encode('utf-8-sig')
                     st.download_button(label="📥 CSV 파일로 다운로드", data=csv, file_name=f"{goal_name}_plan.csv", mime="text/csv", use_container_width=True)
-                
                 with col2:
                     file_name_for_image = f"{goal_name.replace(' ', '_')}_plan.png"
                     save_image_html = f"""
@@ -338,16 +471,21 @@ if submitted:
                             const el = document.getElementById("capture-area");
                             const btn = document.getElementById("save-img-btn");
                             btn.innerHTML = "저장 중..."; btn.disabled = true;
-                            html2canvas(el, {{ scale: 2, backgroundColor: '#ffffff', useCORS: true }}).then(canvas => {{
-                                const image = canvas.toDataURL("image/png");
-                                const link = document.createElement("a");
-                                link.href = image;
-                                link.download = "{file_name_for_image}";
-                                link.click();
-                                btn.innerHTML = "📸 이미지로 저장"; btn.disabled = false;
-                            }});
+                            setTimeout(() => {{
+                                html2canvas(el, {{ scale: 2, backgroundColor: '#ffffff', useCORS: true }}).then(canvas => {{
+                                    const image = canvas.toDataURL("image.png");
+                                    const link = document.createElement("a");
+                                    link.href = image; link.download = "{file_name_for_image}";
+                                    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                                    btn.innerHTML = "📸 이미지로 저장"; btn.disabled = false;
+                                }}).catch(err => {{
+                                    console.error("Image capture failed:", err);
+                                    btn.innerHTML = "오류 발생! 다시 시도하세요."; btn.disabled = false;
+                                }});
+                            }}, 500);
                         }}
                         </script>
                         <button id="save-img-btn" onclick="captureAndDownload()" style="width:100%; padding:12px; font-size:16px; font-weight:bold; color:white; background-color:#28a745; border:none; border-radius:5px; cursor:pointer;">📸 이미지로 저장</button>
                     """
                     components.html(save_image_html, height=50)
+
