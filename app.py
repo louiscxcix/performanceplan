@@ -12,10 +12,11 @@ from PIL import Image
 
 # --- 1. 앱 기본 설정 및 페이지 구성 ---
 try:
-    # 사용자 지정 아이콘 로드 시도
+    # 사용자 지정 아이콘을 로드합니다.
+    # 중요: 'icon.png' 파일이 이 스크립트와 동일한 폴더에 있어야 합니다.
     icon = Image.open("icon.png")
 except FileNotFoundError:
-    # 파일을 찾지 못하면 기본 이모지 사용
+    # 파일을 찾지 못하면 기본 이모지를 사용합니다.
     icon = "🤖"
 
 st.set_page_config(
@@ -53,7 +54,7 @@ st.markdown("""
     }
 
     /* Apply styles to all input widgets including date picker */
-    .stTextInput > div, .stTextArea > div, .stDateInput > div, .stSelectbox > div {
+    .stTextInput > div, .stTextArea > div, .stDateInput > div {
         background-color: rgba(13, 125, 163, 0.04);
         border: 1px solid rgba(13, 125, 163, 0.04);
         border-radius: 12px;
@@ -62,8 +63,7 @@ st.markdown("""
     
     .stTextInput > div > div > input,
     .stTextArea > div > textarea,
-    .stDateInput > div > div > input,
-    .stSelectbox > div > div {
+    .stDateInput > div > div > input {
         background-color: transparent !important;
         border: none !important;
         color: #0D1628;
@@ -73,27 +73,19 @@ st.markdown("""
     /* Focus effect */
     .stTextInput > div:focus-within,
     .stTextArea > div:focus-within,
-    .stDateInput > div:focus-within,
-    .stSelectbox > div:focus-within {
+    .stDateInput > div:focus-within {
         border: 1px solid #2BA7D1;
         box-shadow: none;
     }
 
-    /* Label styling */
+    /* Label styling - FIXED SPACING */
     .stTextInput > label,
     .stTextArea > label,
-    .stDateInput > label,
-    .stSelectbox > label {
+    .stDateInput > label {
         color: #86929A !important;
         font-size: 12px !important;
         font-family: 'Helvetica', sans-serif;
-        padding: 10px 12px 0px 12px !important;
-        margin-bottom: -5px; 
-    }
-
-    /* Specific adjustments for custom date picker */
-     div[data-testid="stHorizontalBlock"] .stSelectbox > label {
-        margin-bottom: -15px !important; 
+        padding: 10px 12px 2px 12px !important; /* Added bottom padding for spacing */
     }
     
     .stTextArea > div > textarea {
@@ -112,7 +104,7 @@ st.markdown("""
     .stButton > button {
         width: 100%;
         padding: 14px 36px;
-        background: #2BA7D1;
+        background: linear-gradient(135deg, rgba(98, 120, 246, 0.20) 0%, rgba(29, 48, 78, 0) 100%), #2BA7D1;
         box-shadow: 0px 5px 10px rgba(26, 26, 26, 0.10);
         border-radius: 12px;
         color: white;
@@ -123,7 +115,7 @@ st.markdown("""
         margin-top: 20px;
     }
     .stButton > button:hover {
-        background: #2490b4;
+        background: linear-gradient(135deg, rgba(98, 120, 246, 0.20) 0%, rgba(29, 48, 78, 0) 100%), #2490b4;
         color: white;
         border: none;
     }
@@ -360,66 +352,30 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# --- UPDATED Custom Date Picker Function ---
-def custom_date_input(label, default_date, key_prefix):
-    st.markdown(f"<label style='color: #86929A !important; font-size: 12px !important; font-family: Helvetica, sans-serif; padding: 0px 12px 0px 0px !important;'>{label}</label>", unsafe_allow_html=True)
-    
-    current_year = date.today().year
-    years = list(range(current_year - 5, current_year + 6))
-    months = list(range(1, 13))
-    
-    try:
-        year_index = years.index(default_date.year)
-    except ValueError:
-        years.append(default_date.year)
-        years.sort()
-        year_index = years.index(default_date.year)
-
-    month_index = months.index(default_date.month)
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        selected_year = st.selectbox("Year", years, index=year_index, label_visibility="collapsed", key=f"{key_prefix}_year")
-    with c2:
-        selected_month = st.selectbox("Month", months, format_func=lambda x: f"{x}월", index=month_index, label_visibility="collapsed", key=f"{key_prefix}_month")
-    
-    days_in_month = monthrange(selected_year, selected_month)[1]
-    days = list(range(1, days_in_month + 1))
-    
-    try:
-        day_index = days.index(default_date.day)
-    except ValueError:
-        day_index = len(days) - 1 
-    
-    with c3:
-        selected_day = st.selectbox("Day", days, index=day_index, label_visibility="collapsed", key=f"{key_prefix}_day")
-    
-    try:
-        return date(selected_year, selected_month, selected_day)
-    except ValueError:
-        return date(selected_year, selected_month, days[-1])
-
-
 with st.form("main_form"):
     with st.container():
-        goal_name = st.text_input("훈련 목표 이름", "2025 마라톤 대회 준비")
+        goal_name = st.text_input("훈련 목표 이름", placeholder="예: 2025 마라톤 대회 준비")
         
         col1, col2 = st.columns(2)
         with col1:
-            start_day = custom_date_input("시작일", date.today(), key_prefix="start")
+            start_day = st.date_input("시작일", date.today())
         with col2:
-            d_day = custom_date_input("종료일", date.today() + timedelta(days=90), key_prefix="end")
+            d_day = st.date_input("종료일", date.today() + timedelta(days=90))
 
         user_description = st.text_area(
             "훈련 목표 계획을 설명해 주세요",
-            "어떤 훈련을 계획하고 계신가요? AI가 분석할 수 있도록 자유롭게 설명해주세요."
+            placeholder="예: 마라톤 풀코스 준비를 위해 주 4회 훈련합니다. 인터벌, 지속주, 회복 조깅을 포함하고 싶습니다."
         )
     
     submitted = st.form_submit_button("다 음")
 
-# --- 7. 결과 출력 ---
+# --- 7. 계획 생성 및 상태 저장 로직 ---
 if submitted:
-    if not user_description or user_description == "어떤 훈련을 계획하고 계신가요? AI가 분석할 수 있도록 자유롭게 설명해주세요.":
+    # Clear previous plan if it exists
+    if 'plan_generated' in st.session_state:
+        del st.session_state['plan_generated']
+
+    if not user_description or user_description == "예: 마라톤 풀코스 준비를 위해 주 4회 훈련합니다. 인터벌, 지속주, 회복 조깅을 포함하고 싶습니다.":
         st.warning("훈련 계획 설명을 입력해주세요.")
     elif start_day >= d_day:
         st.error("오류: 훈련 시작일은 목표일보다 이전이어야 합니다.")
@@ -432,11 +388,16 @@ if submitted:
             if training_list:
                 st.success("✅ AI 분석 완료! 훈련 계획을 생성합니다.")
                 
+                # 생성된 계획을 세션 상태에 저장
+                st.session_state.plan_generated = True
+                st.session_state.goal_name = goal_name
+                
                 level_map = {
                     1: "Lvl 1: 완전 휴식 🟢", 2: "Lvl 2: 가벼운 회복 🔵", 3: "Lvl 3: 기술 훈련 🟡",
                     4: "Lvl 4: 지구력 훈련 🟠", 5: "Lvl 5: 템포 훈련 🔴", 6: "Lvl 6: 고강도 인터벌 🟣",
                     7: "Lvl 7: 최대 강도 🔥"
                 }
+                st.session_state.level_map = level_map
 
                 total_days = (d_day - start_day).days + 1
                 date_range = pd.to_datetime(pd.date_range(start=start_day, end=d_day))
@@ -444,62 +405,110 @@ if submitted:
                 trainings = get_trainings_by_level(training_list)
                 plan_df = generate_dynamic_plan(total_days, date_range, trainings)
                 display_df = get_intuitive_df(plan_df, level_map)
-
-                st.markdown('<div id="capture-area" style="background-color: white; padding: 20px; border-radius: 10px; border: 1px solid #ddd;">', unsafe_allow_html=True)
-                st.header(f"🎯 '{goal_name}' 최종 훈련 계획")
                 
-                st.subheader("📊 주기화 그래프")
-                st.markdown("""
-                <style>
-                    div.stRadio > div { display: flex; flex-direction: row; background-color: rgba(12, 124, 162, 0.04); padding: 4px; border-radius: 12px; justify-content: center; }
-                    div.stRadio > div > label { flex: 1; text-align: center; padding: 10px 4px; border-radius: 8px; margin: 0 !important; -webkit-user-select: none; -ms-user-select: none; user-select: none; }
-                    div.stRadio > div > label > div { display: inline; }
-                    div.stRadio input[type="radio"] { display: none; }
-                    div.stRadio div:has(input[type="radio"]:checked) > label { background: white; box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.02); color: #0D1628; font-weight: 600; }
-                    div.stRadio div:has(input[type="radio"]:not(:checked)) > label { background: transparent; color: #86929A; }
-                </style>
-                """, unsafe_allow_html=True)
-                
-                chart_choice = st.radio("그래프 선택", options=['예상 퍼포먼스', '훈련 강도'], horizontal=True, label_visibility='collapsed')
+                st.session_state.plan_df = plan_df
+                st.session_state.display_df = display_df
+            else:
+                st.session_state.plan_generated = False
 
-                if chart_choice == '예상 퍼포먼스':
-                    st.plotly_chart(create_performance_chart(plan_df), use_container_width=True)
-                else:
-                    st.plotly_chart(create_intensity_chart(plan_df, level_map), use_container_width=True)
+# --- 8. 결과 출력 (상태 확인) ---
+if 'plan_generated' in st.session_state and st.session_state.plan_generated:
+    # 세션 상태에서 데이터 로드
+    goal_name = st.session_state.goal_name
+    plan_df = st.session_state.plan_df
+    display_df = st.session_state.display_df
+    level_map = st.session_state.level_map
 
-                st.subheader("📅 상세 훈련 캘린더")
-                st.dataframe(display_df, use_container_width=True, height=500)
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                st.write("")
-                col1, col2 = st.columns(2)
-                with col1:
-                    csv = display_df.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button(label="📥 CSV 파일로 다운로드", data=csv, file_name=f"{goal_name}_plan.csv", mime="text/csv", use_container_width=True)
-                with col2:
-                    file_name_for_image = f"{goal_name.replace(' ', '_')}_plan.png"
-                    save_image_html = f"""
-                        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-                        <script>
-                        function captureAndDownload() {{
-                            const el = document.getElementById("capture-area");
-                            const btn = document.getElementById("save-img-btn");
-                            btn.innerHTML = "저장 중..."; btn.disabled = true;
-                            setTimeout(() => {{
-                                html2canvas(el, {{ scale: 2, backgroundColor: '#ffffff', useCORS: true }}).then(canvas => {{
-                                    const image = canvas.toDataURL("image.png");
-                                    const link = document.createElement("a");
-                                    link.href = image; link.download = "{file_name_for_image}";
-                                    document.body.appendChild(link); link.click(); document.body.removeChild(link);
-                                    btn.innerHTML = "📸 이미지로 저장"; btn.disabled = false;
-                                }}).catch(err => {{
-                                    console.error("Image capture failed:", err);
-                                    btn.innerHTML = "오류 발생! 다시 시도하세요."; btn.disabled = false;
-                                }});
-                            }}, 500);
-                        }}
-                        </script>
-                        <button id="save-img-btn" onclick="captureAndDownload()" style="width:100%; padding:12px; font-size:16px; font-weight:bold; color:white; background-color:#28a745; border:none; border-radius:5px; cursor:pointer;">📸 이미지로 저장</button>
-                    """
-                    components.html(save_image_html, height=50)
+    st.markdown('<div id="capture-area" style="background-color: white; padding: 20px; border-radius: 10px; border: 1px solid #ddd;">', unsafe_allow_html=True)
+    st.header(f"🎯 '{goal_name}' 최종 훈련 계획")
+    
+    st.subheader("📊 주기화 그래프")
+    st.markdown("""
+    <style>
+        div.stRadio > div { 
+            display: flex; 
+            flex-direction: row; 
+            background-color: rgba(12, 124, 162, 0.04); 
+            padding: 4px; 
+            border-radius: 12px; 
+            justify-content: center; 
+            outline: 1px rgba(12.55, 124.74, 162.74, 0.04) solid;
+        }
+        div.stRadio > div > label { 
+            flex: 1; 
+            text-align: center; 
+            padding: 10px 4px; 
+            border-radius: 8px; 
+            margin: 0 !important; 
+            -webkit-user-select: none; 
+            -ms-user-select: none; 
+            user-select: none; 
+            transition: all 0.2s ease-in-out;
+        }
+        div.stRadio > div > label > div { 
+            display: inline; 
+            font-size: 12px;
+            font-family: 'Helvetica';
+            font-weight: 400;
+        }
+        div.stRadio input[type="radio"] { 
+            display: none; 
+        }
+        div.stRadio div:has(input[type="radio"]:checked) > label { 
+            background: white; 
+            box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.02); 
+            color: #0D1628; 
+            font-weight: 600; 
+            border: 0.5px #F7F7F7 solid;
+        }
+        div.stRadio div:has(input[type="radio"]:not(:checked)) > label { 
+            background: transparent; 
+            color: #86929A; 
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # 라디오 버튼은 고유한 key를 가져야 합니다.
+    chart_choice = st.radio("그래프 선택", options=['예상 퍼포먼스', '훈련 강도'], horizontal=True, label_visibility='collapsed', key='chart_selector')
+
+    if chart_choice == '예상 퍼포먼스':
+        st.plotly_chart(create_performance_chart(plan_df), use_container_width=True)
+    else:
+        st.plotly_chart(create_intensity_chart(plan_df, level_map), use_container_width=True)
+
+    st.subheader("📅 상세 훈련 캘린더")
+    st.dataframe(display_df, use_container_width=True, height=500)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.write("")
+    col1, col2 = st.columns(2)
+    with col1:
+        csv = display_df.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(label="📥 CSV 파일로 다운로드", data=csv, file_name=f"{goal_name}_plan.csv", mime="text/csv", use_container_width=True)
+    with col2:
+        file_name_for_image = f"{goal_name.replace(' ', '_')}_plan.png"
+        save_image_html = f"""
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+            <script>
+            function captureAndDownload() {{
+                const el = document.getElementById("capture-area");
+                const btn = document.getElementById("save-img-btn");
+                btn.innerHTML = "저장 중..."; btn.disabled = true;
+                setTimeout(() => {{
+                    html2canvas(el, {{ scale: 2, backgroundColor: '#ffffff', useCORS: true }}).then(canvas => {{
+                        const image = canvas.toDataURL("image.png");
+                        const link = document.createElement("a");
+                        link.href = image; link.download = "{file_name_for_image}";
+                        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                        btn.innerHTML = "📸 이미지로 저장"; btn.disabled = false;
+                    }}).catch(err => {{
+                        console.error("Image capture failed:", err);
+                        btn.innerHTML = "오류 발생! 다시 시도하세요."; btn.disabled = false;
+                    }});
+                }}, 500);
+            }}
+            </script>
+            <button id="save-img-btn" onclick="captureAndDownload()" style="width:100%; padding:12px; font-size:16px; font-weight:bold; color:white; background-color:#28a745; border:none; border-radius:5px; cursor:pointer;">📸 이미지로 저장</button>
+        """
+        components.html(save_image_html, height=50)
 
