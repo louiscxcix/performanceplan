@@ -279,7 +279,7 @@ def generate_dynamic_plan(total_days, date_range, trainings):
         })
     return pd.DataFrame(plan)
 
-# --- 5. 시각화 함수 (드래그 스크롤 및 높이/줌 레벨 조절 기능 추가) ---
+# --- 5. 시각화 함수 (X축 스크롤바 기능 추가) ---
 
 def create_performance_chart(df):
     fig = go.Figure()
@@ -290,20 +290,19 @@ def create_performance_chart(df):
         hovertemplate='<span style="font-size:12px;">%{x|%m월 %d일}</span><br><span style="color:#2BA7D1; font-size:14px;">■</span><span style="font-size:14px;"> <b>%{y}</b></span><extra></extra>'
     ))
     fig.update_layout(
-        height=300, # 그래프 높이를 줄여 직사각형 형태로 변경
+        height=300,
         title=None, xaxis_title=None, yaxis_title="레벨", plot_bgcolor='white', paper_bgcolor='white',
         font=dict(family="Helvetica, sans-serif", size=12, color="#86929A"),
         showlegend=False, margin=dict(l=40, r=20, t=5, b=20),
-        xaxis=dict(showgrid=False, showline=True, linecolor='#E8E8E8', tickformat='%m/%d'),
-        yaxis=dict(showgrid=True, gridcolor='#E8E8E8'),
+        xaxis=dict(
+            showgrid=False, showline=True, linecolor='#E8E8E8', tickformat='%m/%d',
+            rangeslider_visible=True, # X축 스크롤바 활성화
+            rangeslider=dict(visible=True, bgcolor='rgba(232, 232, 232, 0.3)', bordercolor='rgba(0,0,0,0)', thickness=0.1)
+        ),
+        yaxis=dict(showgrid=True, gridcolor='#E8E8E8', fixedrange=True), # Y축 고정
         hoverlabel=dict(bgcolor="#0D1628", font_size=14, font_color="white", bordercolor="rgba(0,0,0,0)", font_family="Helvetica, sans-serif"),
-        hovermode='x unified',
-        dragmode='pan' 
+        hovermode='x unified'
     )
-    # 초기 줌 레벨을 최대 14일로 설정
-    if len(df) > 7:
-        end_index = min(len(df) - 1, 13)
-        fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[end_index]])
     return fig
 
 def create_intensity_chart(df, level_map):
@@ -316,23 +315,24 @@ def create_intensity_chart(df, level_map):
         hovertemplate='<span style="font-size:12px;">%{x|%m월 %d일}</span><br><span style="color:#EE7D8D; font-size:14px;">■</span><span style="font-size:14px;"> <b>%{customdata} (Lvl:%{y})</b></span><extra></extra>'
     ))
     fig.update_layout(
-        height=300, # 그래프 높이를 줄여 직사각형 형태로 변경
+        height=300,
         title=None, xaxis_title=None, yaxis_title=None, plot_bgcolor='white', paper_bgcolor='white',
         font=dict(family="Helvetica, sans-serif", size=11, color="#86929A"),
         showlegend=False, margin=dict(l=25, r=20, t=5, b=20),
-        xaxis=dict(showgrid=False, showline=True, linecolor='#E8E8E8', tickformat='%m/%d', tickfont=dict(size=11)),
-        yaxis=dict(showgrid=False, showticklabels=True, tickmode='array', tickvals=list(range(0, 8)), ticktext=[str(i) for i in range(0, 8)],
-                   range=[0, 7.5], zeroline=False, tickfont=dict(size=9)),
+        xaxis=dict(
+            showgrid=False, showline=True, linecolor='#E8E8E8', tickformat='%m/%d', tickfont=dict(size=11),
+            rangeslider_visible=True, # X축 스크롤바 활성화
+            rangeslider=dict(visible=True, bgcolor='rgba(232, 232, 232, 0.3)', bordercolor='rgba(0,0,0,0)', thickness=0.1)
+        ),
+        yaxis=dict(
+            showgrid=False, showticklabels=True, tickmode='array', tickvals=list(range(0, 8)), ticktext=[str(i) for i in range(0, 8)],
+            range=[0, 7.5], zeroline=False, tickfont=dict(size=9),
+            fixedrange=True # Y축 고정
+        ),
         hoverlabel=dict(bgcolor="#0D1628", font_size=12, font_color="white", bordercolor="rgba(0,0,0,0)", font_family="Helvetica, sans-serif"),
-        hovermode='x unified', bargap=0.4,
-        dragmode='pan'
+        hovermode='x unified', bargap=0.4
     )
-    # 초기 줌 레벨을 최대 14일로 설정
-    if len(df) > 7:
-        end_index = min(len(df) - 1, 13)
-        fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[end_index]])
     return fig
-
 
 # --- 6. 상세 훈련 캘린더 카드 UI 생성 ---
 def generate_calendar_html(df, level_map):
@@ -384,13 +384,13 @@ def generate_calendar_html(df, level_map):
             calendar_html += f"""
             <div style="align-self: stretch; padding: 12px; {border_bottom_style} justify-content: flex-start; align-items: center; gap: 12px; display: inline-flex;">
                 <div style="flex: 1 1 0; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 8px; display: inline-flex;">
-                    <div style="align-self: stretch; padding-bottom: 8px; border-bottom: 1px #F1F1F1 solid; justify-content: space-between; align-items: center; display: inline-flex;">
-                        <div style="color: #666666; font-size: 11px; letter-spacing: 0.20px;">퍼포먼스: {row['퍼포먼스 레벨']}</div>
-                        <div style="text-align: right;"><span style="color: #898D99; font-size: 11px;">강도 </span><span style="color: {intensity_color}; font-size: 11px; font-weight: 700;">{intensity_text}</span></div>
+                    <div style="align-self: stretch; padding-bottom: 8px; border-bottom: 1px #F1F1F1 solid; justify-content: space-between; align-items: center; display: inline-flex; font-family: Helvetica; font-weight: 700; font-size: 11px; letter-spacing: 0.20px;">
+                        <div style="color: #666666;">퍼포먼스: <span style="font-size: 16px; letter-spacing: -1px; vertical-align: middle;">{row['퍼포먼스 레벨']}</span></div>
+                        <div style="text-align: right;"><span style="color: #898D99;">강도 </span><span style="color: {intensity_color};">{intensity_text}</span></div>
                     </div>
                     <div style="align-self: stretch; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 8px; display: flex;">
                         <div style="padding: 2px 8px; background: {phase_color}; border-radius: 4px; display: inline-flex;">
-                            <div style="color: white; font-size: 11px;">{row['단계']}</div>
+                            <div style="color: white; font-size: 11px; font-family: Helvetica; font-weight: 700;">{row['단계']}</div>
                         </div>
                         <div style="color: #0D1628; font-size: 16px; font-family: Helvetica; font-weight: 700; line-height: 24px;">{row['훈련 내용']}</div>
                         <div style="align-self: stretch; color: #86929A; font-size: 12px; font-family: Helvetica; font-weight: 300; line-height: 18px;">{row['상세 가이드']}</div>
@@ -555,18 +555,10 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
     
     chart_choice = st.radio("그래프 선택", options=['예상 퍼포먼스', '훈련 강도'], horizontal=True, label_visibility='collapsed', key='chart_selector')
 
-    # 그래프 렌더링을 위한 설정값
-    config = {
-        'scrollZoom': True,
-        'displayModeBar': True,
-        'modeBarButtonsToRemove': ['zoomIn', 'zoomOut', 'lasso2d', 'select2d', 'autoScale2d'],
-        'displaylogo': False
-    }
-
     if chart_choice == '예상 퍼포먼스':
-        st.plotly_chart(create_performance_chart(plan_df), use_container_width=True, config=config)
+        st.plotly_chart(create_performance_chart(plan_df), use_container_width=True)
     else:
-        st.plotly_chart(create_intensity_chart(plan_df, level_map), use_container_width=True, config=config)
+        st.plotly_chart(create_intensity_chart(plan_df, level_map), use_container_width=True)
 
     st.subheader("📅 상세 훈련 캘린더")
     # 카드 UI로 캘린더 표시
@@ -578,7 +570,13 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
     col1, col2 = st.columns(2)
     with col1:
         # CSV 다운로드를 위한 데이터프레임 재생성
-        display_df_for_csv = get_intuitive_df(plan_df, level_map)
+        def get_intuitive_df_for_csv(df, level_map):
+            df_display = df.copy()
+            df_display["강도 수준"] = df_display["훈련 강도 레벨"].map(level_map)
+            df_display["퍼포먼스 레벨"] = df_display["예상 퍼포먼스"]
+            return df_display[["날짜", "요일", "단계", "훈련 내용", "강도 수준", "퍼포먼스 레벨", "상세 가이드"]]
+        
+        display_df_for_csv = get_intuitive_df_for_csv(plan_df, level_map)
         csv = display_df_for_csv.to_csv(index=False).encode('utf-8-sig')
         st.download_button(label="📥 CSV 파일로 다운로드", data=csv, file_name=f"{goal_name}_plan.csv", mime="text/csv", use_container_width=True)
     with col2:
@@ -607,3 +605,4 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
             <button id="save-img-btn" onclick="captureAndDownload()" style="width:100%; padding:12px; font-size:16px; font-weight:bold; color:white; background-color:#28a745; border:none; border-radius:5px; cursor:pointer;">📸 이미지로 저장</button>
         """
         components.html(save_image_html, height=50)
+
