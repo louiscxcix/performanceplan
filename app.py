@@ -297,7 +297,8 @@ def create_performance_chart(df):
         xaxis=dict(showgrid=False, showline=True, linecolor='#E8E8E8', tickformat='%m/%d'),
         yaxis=dict(showgrid=True, gridcolor='#E8E8E8'),
         hoverlabel=dict(bgcolor="#0D1628", font_size=14, font_color="white", bordercolor="rgba(0,0,0,0)", font_family="Helvetica, sans-serif"),
-        hovermode='x unified'
+        hovermode='x unified',
+        dragmode='pan' 
     )
     # 초기 줌 레벨을 최대 14일로 설정
     if len(df) > 7:
@@ -323,7 +324,8 @@ def create_intensity_chart(df, level_map):
         yaxis=dict(showgrid=False, showticklabels=True, tickmode='array', tickvals=list(range(0, 8)), ticktext=[str(i) for i in range(0, 8)],
                    range=[0, 7.5], zeroline=False, tickfont=dict(size=9)),
         hoverlabel=dict(bgcolor="#0D1628", font_size=12, font_color="white", bordercolor="rgba(0,0,0,0)", font_family="Helvetica, sans-serif"),
-        hovermode='x unified', bargap=0.4
+        hovermode='x unified', bargap=0.4,
+        dragmode='pan'
     )
     # 초기 줌 레벨을 최대 14일로 설정
     if len(df) > 7:
@@ -568,7 +570,7 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
 
     st.subheader("📅 상세 훈련 캘린더")
     # 카드 UI로 캘린더 표시
-    st.markdown(generate_calendar_html(plan_df, level_map), unsafe_allow_html=True)
+    components.html(generate_calendar_html(plan_df, level_map), height=600, scrolling=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
     
@@ -605,4 +607,3 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
             <button id="save-img-btn" onclick="captureAndDownload()" style="width:100%; padding:12px; font-size:16px; font-weight:bold; color:white; background-color:#28a745; border:none; border-radius:5px; cursor:pointer;">📸 이미지로 저장</button>
         """
         components.html(save_image_html, height=50)
-
