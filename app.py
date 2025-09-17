@@ -297,9 +297,9 @@ def create_performance_chart(df):
         xaxis=dict(showgrid=False, showline=True, linecolor='#E8E8E8', tickformat='%m/%d'),
         yaxis=dict(showgrid=True, gridcolor='#E8E8E8'),
         hoverlabel=dict(bgcolor="#0D1628", font_size=14, font_color="white", bordercolor="rgba(0,0,0,0)", font_family="Helvetica, sans-serif"),
-        hovermode='x unified',
-        dragmode='pan' 
+        hovermode='x unified'
     )
+    # 초기 줌 레벨을 최대 14일로 설정
     if len(df) > 7:
         end_index = min(len(df) - 1, 13)
         fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[end_index]])
@@ -323,9 +323,9 @@ def create_intensity_chart(df, level_map):
         yaxis=dict(showgrid=False, showticklabels=True, tickmode='array', tickvals=list(range(0, 8)), ticktext=[str(i) for i in range(0, 8)],
                    range=[0, 7.5], zeroline=False, tickfont=dict(size=9)),
         hoverlabel=dict(bgcolor="#0D1628", font_size=12, font_color="white", bordercolor="rgba(0,0,0,0)", font_family="Helvetica, sans-serif"),
-        hovermode='x unified', bargap=0.4,
-        dragmode='pan'
+        hovermode='x unified', bargap=0.4
     )
+    # 초기 줌 레벨을 최대 14일로 설정
     if len(df) > 7:
         end_index = min(len(df) - 1, 13)
         fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[end_index]])
@@ -479,18 +479,8 @@ if submitted:
                 date_range = pd.to_datetime(pd.date_range(start=start_day, end=d_day))
                 
                 trainings = get_trainings_by_level(training_list)
-                plan_df = generate_dynamic_plan(total_days, date_range, trainings)
+                st.session_state.plan_df = generate_dynamic_plan(total_days, date_range, trainings)
                 
-                # 퍼포먼스 레벨 계산 및 추가
-                min_perf = plan_df["예상 퍼포먼스"].min()
-                max_perf = plan_df["예상 퍼포먼스"].max()
-                def map_performance(perf):
-                    normalized_perf = (perf - min_perf) / (max_perf - min_perf) * 100 if (max_perf - min_perf) > 0 else 50
-                    blocks = int(normalized_perf / 10)
-                    return "■" * blocks + "□" * (10 - blocks)
-                plan_df["퍼포먼스 레벨"] = plan_df["예상 퍼포먼스"].apply(map_performance)
-                
-                st.session_state.plan_df = plan_df
             else:
                 st.session_state.plan_generated = False
 
@@ -498,8 +488,19 @@ if submitted:
 if 'plan_generated' in st.session_state and st.session_state.plan_generated:
     # 세션 상태에서 데이터 로드
     goal_name = st.session_state.goal_name
-    plan_df = st.session_state.plan_df
+    plan_df_raw = st.session_state.plan_df
     level_map = st.session_state.level_map
+
+    # FIXED: 퍼포먼스 레벨 열을 여기서 계산하여 KeyError 방지
+    plan_df = plan_df_raw.copy()
+    min_perf = plan_df["예상 퍼포먼스"].min()
+    max_perf = plan_df["예상 퍼포먼스"].max()
+    def map_performance(perf):
+        normalized_perf = (perf - min_perf) / (max_perf - min_perf) * 100 if (max_perf - min_perf) > 0 else 50
+        blocks = int(normalized_perf / 10)
+        return "■" * blocks + "□" * (10 - blocks)
+    plan_df["퍼포먼스 레벨"] = plan_df["예상 퍼포먼스"].apply(map_performance)
+
 
     st.markdown('<div id="capture-area" style="background-color: white; padding: 30px 20px 20px 20px; border-radius: 10px; border: 1px solid #ddd;">', unsafe_allow_html=True)
     st.header(f"🎯 '{goal_name}' 최종 훈련 계획")
