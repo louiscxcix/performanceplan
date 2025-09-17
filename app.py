@@ -279,7 +279,7 @@ def generate_dynamic_plan(total_days, date_range, trainings):
         })
     return pd.DataFrame(plan)
 
-# --- 5. 시각화 함수 (드래그 스크롤 기능 추가) ---
+# --- 5. 시각화 함수 (드래그 스크롤 및 높이/줌 레벨 조절 기능 추가) ---
 
 def create_performance_chart(df):
     fig = go.Figure()
@@ -290,7 +290,7 @@ def create_performance_chart(df):
         hovertemplate='<span style="font-size:12px;">%{x|%m월 %d일}</span><br><span style="color:#2BA7D1; font-size:14px;">■</span><span style="font-size:14px;"> <b>%{y}</b></span><extra></extra>'
     ))
     fig.update_layout(
-        height=350,
+        height=300, # 그래프 높이를 줄여 직사각형 형태로 변경
         title=None, xaxis_title=None, yaxis_title="레벨", plot_bgcolor='white', paper_bgcolor='white',
         font=dict(family="Helvetica, sans-serif", size=12, color="#86929A"),
         showlegend=False, margin=dict(l=40, r=20, t=5, b=20),
@@ -300,8 +300,10 @@ def create_performance_chart(df):
         hovermode='x unified',
         dragmode='pan' # 사용자가 그래프를 드래그하여 스크롤할 수 있도록 설정
     )
+    # 초기 줌 레벨을 최대 14일로 설정
     if len(df) > 7:
-        fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[6]])
+        end_index = min(len(df) - 1, 13)
+        fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[end_index]])
     return fig
 
 def create_intensity_chart(df, level_map):
@@ -314,7 +316,7 @@ def create_intensity_chart(df, level_map):
         hovertemplate='<span style="font-size:12px;">%{x|%m월 %d일}</span><br><span style="color:#EE7D8D; font-size:14px;">■</span><span style="font-size:14px;"> <b>%{customdata} (Lvl:%{y})</b></span><extra></extra>'
     ))
     fig.update_layout(
-        height=350,
+        height=300, # 그래프 높이를 줄여 직사각형 형태로 변경
         title=None, xaxis_title=None, yaxis_title=None, plot_bgcolor='white', paper_bgcolor='white',
         font=dict(family="Helvetica, sans-serif", size=11, color="#86929A"),
         showlegend=False, margin=dict(l=25, r=20, t=5, b=20),
@@ -325,8 +327,10 @@ def create_intensity_chart(df, level_map):
         hovermode='x unified', bargap=0.4,
         dragmode='pan' # 사용자가 그래프를 드래그하여 스크롤할 수 있도록 설정
     )
+    # 초기 줌 레벨을 최대 14일로 설정
     if len(df) > 7:
-        fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[6]])
+        end_index = min(len(df) - 1, 13)
+        fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[end_index]])
     return fig
 
 def get_intuitive_df(df, level_map):
