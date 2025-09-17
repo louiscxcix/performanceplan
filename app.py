@@ -290,7 +290,7 @@ def create_performance_chart(df):
         hovertemplate='<span style="font-size:12px;">%{x|%m월 %d일}</span><br><span style="color:#2BA7D1; font-size:14px;">■</span><span style="font-size:14px;"> <b>%{y}</b></span><extra></extra>'
     ))
     fig.update_layout(
-        height=300,
+        height=250,
         title=None, xaxis_title=None, yaxis_title="레벨", plot_bgcolor='white', paper_bgcolor='white',
         font=dict(family="Helvetica, sans-serif", size=12, color="#86929A"),
         showlegend=False, margin=dict(l=40, r=20, t=5, b=20),
@@ -315,7 +315,7 @@ def create_intensity_chart(df, level_map):
         hovertemplate='<span style="font-size:12px;">%{x|%m월 %d일}</span><br><span style="color:#EE7D8D; font-size:14px;">■</span><span style="font-size:14px;"> <b>%{customdata} (Lvl:%{y})</b></span><extra></extra>'
     ))
     fig.update_layout(
-        height=300,
+        height=250,
         title=None, xaxis_title=None, yaxis_title=None, plot_bgcolor='white', paper_bgcolor='white',
         font=dict(family="Helvetica, sans-serif", size=11, color="#86929A"),
         showlegend=False, margin=dict(l=25, r=20, t=5, b=20),
@@ -555,10 +555,18 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
     
     chart_choice = st.radio("그래프 선택", options=['예상 퍼포먼스', '훈련 강도'], horizontal=True, label_visibility='collapsed', key='chart_selector')
 
+    # 그래프 렌더링을 위한 설정값
+    config = {
+        'scrollZoom': True,
+        'displayModeBar': True,
+        'modeBarButtonsToRemove': ['zoomIn', 'zoomOut', 'lasso2d', 'select2d', 'autoScale2d'],
+        'displaylogo': False
+    }
+
     if chart_choice == '예상 퍼포먼스':
-        st.plotly_chart(create_performance_chart(plan_df), use_container_width=True)
+        st.plotly_chart(create_performance_chart(plan_df), use_container_width=True, config=config)
     else:
-        st.plotly_chart(create_intensity_chart(plan_df, level_map), use_container_width=True)
+        st.plotly_chart(create_intensity_chart(plan_df, level_map), use_container_width=True, config=config)
 
     st.subheader("📅 상세 훈련 캘린더")
     # 카드 UI로 캘린더 표시
@@ -605,4 +613,6 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
             <button id="save-img-btn" onclick="captureAndDownload()" style="width:100%; padding:12px; font-size:16px; font-weight:bold; color:white; background-color:#28a745; border:none; border-radius:5px; cursor:pointer;">📸 이미지로 저장</button>
         """
         components.html(save_image_html, height=50)
+
+
 
