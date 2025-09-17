@@ -239,6 +239,7 @@ def generate_dynamic_plan(total_days, date_range, trainings):
         remaining_days = total_days - i
 
         workout_level = 1
+        # 기간이 21일 이하이므로, 단기 계획 로직만 사용
         if remaining_days <= 10:
             phase = "테이퍼링"
             if remaining_days == 1: workout_level = 1
@@ -247,11 +248,11 @@ def generate_dynamic_plan(total_days, date_range, trainings):
             elif remaining_days == 5: workout_level = 6
             else: workout_level = random.choice([2, 3])
             consecutive_training_days = 0
-        else:
-            phase = "준비기" if progress < 0.6 else "시합기"
+        else: # 11일 ~ 21일 사이 기간
+            phase = "시합기"
             if consecutive_training_days < random.choice([2, 3]):
                 consecutive_training_days += 1
-                workout_level = random.choice([4, 4, 5, 3]) if phase == "준비기" else random.choice([6, 5, 4])
+                workout_level = random.choice([6, 5, 4])
             else:
                 workout_level = random.choice([2, 2, 3])
                 consecutive_training_days = 0
@@ -278,7 +279,7 @@ def generate_dynamic_plan(total_days, date_range, trainings):
         })
     return pd.DataFrame(plan)
 
-# --- 5. 시각화 함수 (스크롤 기능 추가) ---
+# --- 5. 시각화 함수 (드래그 스크롤 기능 추가) ---
 
 def create_performance_chart(df):
     fig = go.Figure()
@@ -289,17 +290,16 @@ def create_performance_chart(df):
         hovertemplate='<span style="font-size:12px;">%{x|%m월 %d일}</span><br><span style="color:#2BA7D1; font-size:14px;">■</span><span style="font-size:14px;"> <b>%{y}</b></span><extra></extra>'
     ))
     fig.update_layout(
-        height=350, # 그래프 높이 조절
+        height=350,
         title=None, xaxis_title=None, yaxis_title="레벨", plot_bgcolor='white', paper_bgcolor='white',
         font=dict(family="Helvetica, sans-serif", size=12, color="#86929A"),
         showlegend=False, margin=dict(l=40, r=20, t=5, b=20),
-        xaxis=dict(showgrid=False, showline=True, linecolor='#E8E8E8', tickformat='%m/%d',
-                   rangeslider_visible=False), # 레인지 슬라이더 비활성화
+        xaxis=dict(showgrid=False, showline=True, linecolor='#E8E8E8', tickformat='%m/%d'),
         yaxis=dict(showgrid=True, gridcolor='#E8E8E8'),
         hoverlabel=dict(bgcolor="#0D1628", font_size=14, font_color="white", bordercolor="rgba(0,0,0,0)", font_family="Helvetica, sans-serif"),
-        hovermode='x unified'
+        hovermode='x unified',
+        dragmode='pan' # 사용자가 그래프를 드래그하여 스크롤할 수 있도록 설정
     )
-    # 초기 줌 레벨 설정 (전체 기간이 7일 이상일 경우)
     if len(df) > 7:
         fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[6]])
     return fig
@@ -314,18 +314,17 @@ def create_intensity_chart(df, level_map):
         hovertemplate='<span style="font-size:12px;">%{x|%m월 %d일}</span><br><span style="color:#EE7D8D; font-size:14px;">■</span><span style="font-size:14px;"> <b>%{customdata} (Lvl:%{y})</b></span><extra></extra>'
     ))
     fig.update_layout(
-        height=350, # 그래프 높이 조절
+        height=350,
         title=None, xaxis_title=None, yaxis_title=None, plot_bgcolor='white', paper_bgcolor='white',
         font=dict(family="Helvetica, sans-serif", size=11, color="#86929A"),
         showlegend=False, margin=dict(l=25, r=20, t=5, b=20),
-        xaxis=dict(showgrid=False, showline=True, linecolor='#E8E8E8', tickformat='%m/%d', tickfont=dict(size=11),
-                   rangeslider_visible=False), # 레인지 슬라이더 비활성화
+        xaxis=dict(showgrid=False, showline=True, linecolor='#E8E8E8', tickformat='%m/%d', tickfont=dict(size=11)),
         yaxis=dict(showgrid=False, showticklabels=True, tickmode='array', tickvals=list(range(0, 8)), ticktext=[str(i) for i in range(0, 8)],
                    range=[0, 7.5], zeroline=False, tickfont=dict(size=9)),
         hoverlabel=dict(bgcolor="#0D1628", font_size=12, font_color="white", bordercolor="rgba(0,0,0,0)", font_family="Helvetica, sans-serif"),
-        hovermode='x unified', bargap=0.4 # Adjust bargap to control spacing
+        hovermode='x unified', bargap=0.4,
+        dragmode='pan' # 사용자가 그래프를 드래그하여 스크롤할 수 있도록 설정
     )
-    # 초기 줌 레벨 설정 (전체 기간이 7일 이상일 경우)
     if len(df) > 7:
         fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[6]])
     return fig
@@ -364,7 +363,16 @@ with st.form("main_form"):
         with col1:
             start_day = st.date_input("시작일", date.today())
         with col2:
-            d_day = st.date_input("종료일", date.today() + timedelta(days=90))
+            # 종료일의 최대값을 시작일로부터 21일 후로 제한
+            max_date = start_day + timedelta(days=20)
+            # 종료일의 기본값을 시작일로부터 14일 후로 설정
+            default_end_date = start_day + timedelta(days=13)
+            d_day = st.date_input(
+                "종료일",
+                default_end_date,
+                max_value=max_date,
+                help="최대 3주(21일)까지 계획을 생성할 수 있습니다."
+            )
 
         user_description = st.text_area(
             "훈련 목표 계획을 설명해 주세요",
@@ -378,8 +386,11 @@ if submitted:
     # Clear previous plan if it exists
     if 'plan_generated' in st.session_state:
         del st.session_state['plan_generated']
-
-    if not user_description or user_description == "예: 마라톤 풀코스 준비를 위해 주 4회 훈련합니다. 인터벌, 지속주, 회복 조깅을 포함하고 싶습니다.":
+    
+    # 추가된 기간 유효성 검사
+    if (d_day - start_day).days > 20:
+        st.error("오류: 훈련 기간은 최대 3주(21일)를 초과할 수 없습니다.")
+    elif not user_description or user_description == "예: 마라톤 풀코스 준비를 위해 주 4회 훈련합니다. 인터벌, 지속주, 회복 조깅을 포함하고 싶습니다.":
         st.warning("훈련 계획 설명을 입력해주세요.")
     elif start_day >= d_day:
         st.error("오류: 훈련 시작일은 목표일보다 이전이어야 합니다.")
@@ -515,4 +526,3 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
             <button id="save-img-btn" onclick="captureAndDownload()" style="width:100%; padding:12px; font-size:16px; font-weight:bold; color:white; background-color:#28a745; border:none; border-radius:5px; cursor:pointer;">📸 이미지로 저장</button>
         """
         components.html(save_image_html, height=50)
-
