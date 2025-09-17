@@ -298,9 +298,8 @@ def create_performance_chart(df):
         yaxis=dict(showgrid=True, gridcolor='#E8E8E8'),
         hoverlabel=dict(bgcolor="#0D1628", font_size=14, font_color="white", bordercolor="rgba(0,0,0,0)", font_family="Helvetica, sans-serif"),
         hovermode='x unified',
-        dragmode='pan' # 사용자가 그래프를 드래그하여 스크롤할 수 있도록 설정
+        dragmode='pan' 
     )
-    # 초기 줌 레벨을 최대 14일로 설정
     if len(df) > 7:
         end_index = min(len(df) - 1, 13)
         fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[end_index]])
@@ -325,27 +324,85 @@ def create_intensity_chart(df, level_map):
                    range=[0, 7.5], zeroline=False, tickfont=dict(size=9)),
         hoverlabel=dict(bgcolor="#0D1628", font_size=12, font_color="white", bordercolor="rgba(0,0,0,0)", font_family="Helvetica, sans-serif"),
         hovermode='x unified', bargap=0.4,
-        dragmode='pan' # 사용자가 그래프를 드래그하여 스크롤할 수 있도록 설정
+        dragmode='pan'
     )
-    # 초기 줌 레벨을 최대 14일로 설정
     if len(df) > 7:
         end_index = min(len(df) - 1, 13)
         fig.update_xaxes(range=[df['날짜'].iloc[0], df['날짜'].iloc[end_index]])
     return fig
 
-def get_intuitive_df(df, level_map):
-    df_display = df.copy()
-    df_display["강도 수준"] = df_display["훈련 강도 레벨"].map(level_map)
-    min_perf = df_display["예상 퍼포먼스"].min()
-    max_perf = df_display["예상 퍼포먼스"].max()
-    def map_performance(perf):
-        normalized_perf = (perf - min_perf) / (max_perf - min_perf) * 100 if (max_perf - min_perf) > 0 else 50
-        blocks = int(normalized_perf / 10)
-        return "■" * blocks + "□" * (10 - blocks)
-    df_display["퍼포먼스 레벨"] = df_display["예상 퍼포먼스"].apply(map_performance)
-    return df_display[["날짜", "요일", "단계", "훈련 내용", "강도 수준", "퍼포먼스 레벨", "상세 가이드"]]
 
-# --- 6. 메인 UI 구성 (디자인 레퍼런스 적용) ---
+# --- 6. 상세 훈련 캘린더 카드 UI 생성 ---
+def generate_calendar_html(df, level_map):
+    # 날짜별로 데이터 그룹화
+    grouped = df.groupby('날짜')
+    
+    # 전체 HTML을 담을 변수
+    calendar_html = "<div style='display: flex; flex-direction: column; gap: 16px;'>"
+
+    for name, group in grouped:
+        date_obj = pd.to_datetime(name)
+        date_str = date_obj.strftime("%y.%m.%d (%a)")
+        
+        # 카드 헤더
+        calendar_html += f"""
+        <div style="align-self: stretch; flex-direction: column; justify-content: flex-start; align-items: flex-start; display: flex;">
+            <div style="align-self: stretch; padding-top: 8px; padding-bottom: 8px; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 10px; display: flex;">
+                <div style="align-self: stretch; justify-content: space-between; align-items: center; display: inline-flex;">
+                    <div style="justify-content: flex-start; align-items: center; gap: 8px; display: flex;">
+                        <div style="color: #0D1628; font-size: 12px; font-family: Helvetica; font-weight: 700; line-height: 16px;">{date_str}</div>
+                        <div style="color: #2BA7D1; font-size: 12px; font-family: Helvetica; font-weight: 700; line-height: 16px;">{len(group)}건</div>
+                    </div>
+                </div>
+            </div>
+            <div style="align-self: stretch; background: white; overflow: hidden; border-radius: 16px; outline: 1px #F1F1F1 solid; flex-direction: column; justify-content: flex-start; align-items: flex-start; display: flex;">
+        """
+
+        # 각 훈련 항목
+        for idx, row in group.iterrows():
+            level = row['훈련 강도 레벨']
+            
+            # 강도에 따른 색상 및 텍스트 설정
+            if level <= 2:
+                intensity_text = "매우 낮음"
+                intensity_color = "#1AB27A" # Green
+            elif level <= 4:
+                intensity_text = "보통"
+                intensity_color = "#EB734D" # Orange
+            else:
+                intensity_text = "매우 높음"
+                intensity_color = "#FF2B64" # Red
+            
+            # 단계(Phase)에 따른 태그 색상
+            phase_color = "#1AB27A" if row['단계'] == '준비기' else ("#EB734D" if row['단계'] == '시합기' else "#86929A")
+
+            # 마지막 항목이 아니면 구분선 추가
+            border_bottom_style = "border-bottom: 1px #F7F7F7 solid;" if idx != group.index[-1] else ""
+
+            calendar_html += f"""
+            <div style="align-self: stretch; padding: 12px; {border_bottom_style} justify-content: flex-start; align-items: center; gap: 12px; display: inline-flex;">
+                <div style="flex: 1 1 0; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 8px; display: inline-flex;">
+                    <div style="align-self: stretch; padding-bottom: 8px; border-bottom: 1px #F1F1F1 solid; justify-content: space-between; align-items: center; display: inline-flex;">
+                        <div style="color: #666666; font-size: 11px; letter-spacing: 0.20px;">퍼포먼스: {row['퍼포먼스 레벨']}</div>
+                        <div style="text-align: right;"><span style="color: #898D99; font-size: 11px;">강도 </span><span style="color: {intensity_color}; font-size: 11px; font-weight: 700;">{intensity_text}</span></div>
+                    </div>
+                    <div style="align-self: stretch; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 8px; display: flex;">
+                        <div style="padding: 2px 8px; background: {phase_color}; border-radius: 4px; display: inline-flex;">
+                            <div style="color: white; font-size: 11px;">{row['단계']}</div>
+                        </div>
+                        <div style="color: #0D1628; font-size: 16px; font-family: Helvetica; font-weight: 700; line-height: 24px;">{row['훈련 내용']}</div>
+                        <div style="align-self: stretch; color: #86929A; font-size: 12px; font-family: Helvetica; font-weight: 300; line-height: 18px;">{row['상세 가이드']}</div>
+                    </div>
+                </div>
+            </div>
+            """
+
+        calendar_html += "</div></div>"
+
+    calendar_html += "</div>"
+    return calendar_html
+
+# --- 7. 메인 UI 구성 (디자인 레퍼런스 적용) ---
 st.markdown("""
 <div style="align-self: stretch; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 12px; display: flex; margin-bottom: 40px;">
   <div style="padding: 8px; background: rgba(13, 125, 163, 0.04); border-radius: 48px; display: inline-flex; align-items: center; justify-content: center;">
@@ -385,7 +442,7 @@ with st.form("main_form"):
     
     submitted = st.form_submit_button("다 음")
 
-# --- 7. 계획 생성 및 상태 저장 로직 ---
+# --- 8. 계획 생성 및 상태 저장 로직 ---
 if submitted:
     # Clear previous plan if it exists
     if 'plan_generated' in st.session_state:
@@ -423,19 +480,25 @@ if submitted:
                 
                 trainings = get_trainings_by_level(training_list)
                 plan_df = generate_dynamic_plan(total_days, date_range, trainings)
-                display_df = get_intuitive_df(plan_df, level_map)
+                
+                # 퍼포먼스 레벨 계산 및 추가
+                min_perf = plan_df["예상 퍼포먼스"].min()
+                max_perf = plan_df["예상 퍼포먼스"].max()
+                def map_performance(perf):
+                    normalized_perf = (perf - min_perf) / (max_perf - min_perf) * 100 if (max_perf - min_perf) > 0 else 50
+                    blocks = int(normalized_perf / 10)
+                    return "■" * blocks + "□" * (10 - blocks)
+                plan_df["퍼포먼스 레벨"] = plan_df["예상 퍼포먼스"].apply(map_performance)
                 
                 st.session_state.plan_df = plan_df
-                st.session_state.display_df = display_df
             else:
                 st.session_state.plan_generated = False
 
-# --- 8. 결과 출력 (상태 확인) ---
+# --- 9. 결과 출력 (상태 확인) ---
 if 'plan_generated' in st.session_state and st.session_state.plan_generated:
     # 세션 상태에서 데이터 로드
     goal_name = st.session_state.goal_name
     plan_df = st.session_state.plan_df
-    display_df = st.session_state.display_df
     level_map = st.session_state.level_map
 
     st.markdown('<div id="capture-area" style="background-color: white; padding: 30px 20px 20px 20px; border-radius: 10px; border: 1px solid #ddd;">', unsafe_allow_html=True)
@@ -487,22 +550,33 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
     </style>
     """, unsafe_allow_html=True)
     
-    # 라디오 버튼은 고유한 key를 가져야 합니다.
     chart_choice = st.radio("그래프 선택", options=['예상 퍼포먼스', '훈련 강도'], horizontal=True, label_visibility='collapsed', key='chart_selector')
 
+    # 그래프 렌더링을 위한 설정값
+    config = {
+        'scrollZoom': True,
+        'displayModeBar': True,
+        'modeBarButtonsToRemove': ['zoomIn', 'zoomOut', 'lasso2d', 'select2d', 'autoScale2d'],
+        'displaylogo': False
+    }
+
     if chart_choice == '예상 퍼포먼스':
-        st.plotly_chart(create_performance_chart(plan_df), use_container_width=True)
+        st.plotly_chart(create_performance_chart(plan_df), use_container_width=True, config=config)
     else:
-        st.plotly_chart(create_intensity_chart(plan_df, level_map), use_container_width=True)
+        st.plotly_chart(create_intensity_chart(plan_df, level_map), use_container_width=True, config=config)
 
     st.subheader("📅 상세 훈련 캘린더")
-    st.dataframe(display_df, use_container_width=True, height=500)
+    # 카드 UI로 캘린더 표시
+    st.markdown(generate_calendar_html(plan_df, level_map), unsafe_allow_html=True)
+    
     st.markdown('</div>', unsafe_allow_html=True)
     
     st.write("")
     col1, col2 = st.columns(2)
     with col1:
-        csv = display_df.to_csv(index=False).encode('utf-8-sig')
+        # CSV 다운로드를 위한 데이터프레임 재생성
+        display_df_for_csv = get_intuitive_df(plan_df, level_map)
+        csv = display_df_for_csv.to_csv(index=False).encode('utf-8-sig')
         st.download_button(label="📥 CSV 파일로 다운로드", data=csv, file_name=f"{goal_name}_plan.csv", mime="text/csv", use_container_width=True)
     with col2:
         file_name_for_image = f"{goal_name.replace(' ', '_')}_plan.png"
@@ -530,3 +604,4 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
             <button id="save-img-btn" onclick="captureAndDownload()" style="width:100%; padding:12px; font-size:16px; font-weight:bold; color:white; background-color:#28a745; border:none; border-radius:5px; cursor:pointer;">📸 이미지로 저장</button>
         """
         components.html(save_image_html, height=50)
+
