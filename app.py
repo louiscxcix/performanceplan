@@ -648,10 +648,14 @@ if submitted:
 
 # --- 9. 결과 출력 (상태 확인) ---
 if "plan_generated" in st.session_state and st.session_state.plan_generated:
-    # 세션 상태에서 데이터 로드
-    goal_name = st.session_state.goal_name
+    # 세션 상태에서 데이터 로드 (기본값 설정으로 undefined 방지)
+    goal_name = st.session_state.get("goal_name", "훈련 목표")
     plan_df_raw = st.session_state.plan_df
     level_map = st.session_state.level_map
+
+    # goal_name이 빈 문자열인 경우에도 기본값 설정
+    if not goal_name or goal_name.strip() == "":
+        goal_name = "훈련 목표"
 
     # FIXED: 퍼포먼스 레벨 열을 여기서 계산하여 KeyError 방지
     plan_df = plan_df_raw.copy()
@@ -795,7 +799,9 @@ if "plan_generated" in st.session_state and st.session_state.plan_generated:
             use_container_width=True,
         )
     with col2:
-        file_name_for_image = f"{goal_name.replace(' ', '_')}_plan.png"
+        # 파일명 생성 시 안전한 문자열 처리
+        safe_goal_name = goal_name.replace(' ', '_').replace('/', '_').replace('\\', '_') if goal_name else "training_plan"
+        file_name_for_image = f"{safe_goal_name}_plan.png"
         save_image_html = f"""
             <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
             <script>
