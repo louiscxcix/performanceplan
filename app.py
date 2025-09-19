@@ -387,12 +387,12 @@ def create_performance_chart(df):
         height=350,  # 그래프 높이 증가로 가독성 개선
         title=None,
         xaxis_title=None,
-        yaxis_title="레벨",
+        yaxis_title=dict(text="레벨", font=dict(size=14, color="#0D1628")),
         plot_bgcolor="white",
         paper_bgcolor="white",
         font=dict(family="Helvetica, sans-serif", size=12, color="#86929A"),
         showlegend=False,
-        margin=dict(l=40, r=20, t=5, b=20),
+        margin=dict(l=50, r=20, t=30, b=30),  # 여백 증가로 제목 잘림 방지
         xaxis=dict(
             showgrid=False,
             showline=True,
@@ -435,7 +435,7 @@ def create_intensity_chart(df, level_map):
         paper_bgcolor="white",
         font=dict(family="Helvetica, sans-serif", size=11, color="#86929A"),
         showlegend=False,
-        margin=dict(l=25, r=20, t=5, b=20),
+        margin=dict(l=40, r=20, t=30, b=30),  # 여백 증가로 제목 잘림 방지
         xaxis=dict(
             showgrid=False,
             showline=True,
