@@ -102,23 +102,26 @@ st.markdown(
     }
 
     /* Submit Button Styling */
-    .stButton > button {
+    .stButton > button, div[data-testid="stForm"] button[type="submit"] {
         width: 100%;
-        padding: 14px 36px;
-        background: linear-gradient(135deg, rgba(98, 120, 246, 0.20) 0%, rgba(29, 48, 78, 0) 100%), #2BA7D1;
-        box-shadow: 0px 5px 10px rgba(26, 26, 26, 0.10);
-        border-radius: 12px;
-        color: white;
-        font-size: 14px;
+        padding: 16px 36px !important;
+        background: linear-gradient(135deg, #2BA7D1 0%, #1A8BB0 100%) !important;
+        box-shadow: 0px 4px 12px rgba(43, 167, 209, 0.3) !important;
+        border-radius: 16px !important;
+        color: white !important;
+        font-size: 16px !important;
         font-family: 'Helvetica', sans-serif;
-        font-weight: 400;
-        border: none;
-        margin-top: 20px;
+        font-weight: 600 !important;
+        border: 2px solid #1A8BB0 !important;
+        margin-top: 20px !important;
+        transition: all 0.3s ease !important;
     }
-    .stButton > button:hover {
-        background: linear-gradient(135deg, rgba(98, 120, 246, 0.20) 0%, rgba(29, 48, 78, 0) 100%), #2490b4;
-        color: white;
-        border: none;
+    .stButton > button:hover, div[data-testid="stForm"] button[type="submit"]:hover {
+        background: linear-gradient(135deg, #1A8BB0 0%, #147A9D 100%) !important;
+        color: white !important;
+        border: 2px solid #147A9D !important;
+        box-shadow: 0px 6px 16px rgba(43, 167, 209, 0.4) !important;
+        transform: translateY(-2px) !important;
     }
     
     /* Hide the default Streamlit header/footer */
@@ -656,10 +659,7 @@ if "plan_generated" in st.session_state and st.session_state.plan_generated:
 
     plan_df["퍼포먼스 레벨"] = plan_df["예상 퍼포먼스"].apply(map_performance)
 
-    st.markdown(
-        '<div id="capture-area" style="background-color: white; padding: 30px 20px 20px 20px; border-radius: 10px; border: 1px solid #ddd;">',
-        unsafe_allow_html=True,
-    )
+    # capture-area div 제거 - 이상한 박스 문제 해결
     st.header(f"🎯 '{goal_name}' 최종 훈련 계획")
 
     st.subheader("📊 주기화 그래프")
@@ -718,18 +718,22 @@ if "plan_generated" in st.session_state and st.session_state.plan_generated:
         key="chart_selector",
     )
 
-    # 그래프 렌더링을 위한 설정값
+    # 그래프 렌더링을 위한 설정값 - 개선된 줌/팬 기능
     config = {
-        "scrollZoom": True,
-        "displayModeBar": True,
-        "modeBarButtonsToRemove": [
-            "zoomIn",
-            "zoomOut",
+        "scrollZoom": True,  # 마우스 휠로 줌 가능
+        "displayModeBar": True,  # 툴바 표시
+        "modeBarButtonsToRemove": [  # 불필요한 버튼 제거
             "lasso2d",
             "select2d",
-            "autoScale2d",
         ],
-        "displaylogo": False,
+        "modeBarButtonsToAdd": [  # 줌/팬 버튼 추가
+            "pan2d",
+            "zoom2d",
+            "resetScale2d",
+            "zoomIn2d",
+            "zoomOut2d",
+        ],
+        "displaylogo": False,  # Plotly 로고 제거
     }
 
     if chart_choice == "예상 퍼포먼스":
@@ -749,7 +753,7 @@ if "plan_generated" in st.session_state and st.session_state.plan_generated:
         generate_calendar_html(plan_df, level_map), height=600, scrolling=True
     )
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    # capture-area 닫는 태그도 제거
 
     st.write("")
     col1, col2 = st.columns(2)
@@ -786,7 +790,7 @@ if "plan_generated" in st.session_state and st.session_state.plan_generated:
             <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
             <script>
             function captureAndDownload() {{
-                const el = document.getElementById("capture-area");
+                const el = document.querySelector(".main > .block-container") || document.body;
                 const btn = document.getElementById("save-img-btn");
                 btn.innerHTML = "저장 중..."; btn.disabled = true;
                 setTimeout(() => {{
