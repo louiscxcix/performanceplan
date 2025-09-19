@@ -511,16 +511,14 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
     st.markdown("""
     <style>
         div.stRadio > div { 
-            display: flex; 
-            flex-direction: row; 
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             background-color: rgba(12, 124, 162, 0.04); 
             padding: 4px; 
             border-radius: 12px; 
-            justify-content: center; 
             outline: 1px solid rgba(12, 124, 162, 0.04);
         }
         div.stRadio > div > label { 
-            flex: 1; 
             text-align: center; 
             padding: 10px 4px; 
             border-radius: 8px; 
@@ -529,6 +527,7 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
             -ms-user-select: none; 
             user-select: none; 
             transition: all 0.2s ease-in-out;
+            cursor: pointer;
         }
         div.stRadio > div > label > div { 
             display: inline; 
@@ -613,6 +612,3 @@ if 'plan_generated' in st.session_state and st.session_state.plan_generated:
             <button id="save-img-btn" onclick="captureAndDownload()" style="width:100%; padding:12px; font-size:16px; font-weight:bold; color:white; background-color:#28a745; border:none; border-radius:5px; cursor:pointer;">📸 이미지로 저장</button>
         """
         components.html(save_image_html, height=50)
-
-
-
