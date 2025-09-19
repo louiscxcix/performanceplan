@@ -375,7 +375,7 @@ def create_performance_chart(df):
         go.Scatter(
             x=df["날짜"],
             y=df["예상 퍼포먼스"],
-            name="예상 퍼포먼스",
+            name="",  # 빈 이름으로 설정하여 undefined 방지
             line=dict(color="#2BA7D1", width=3),
             fill="tozeroy",
             fillcolor="rgba(43, 167, 209, 0.1)",
@@ -385,8 +385,8 @@ def create_performance_chart(df):
     )
     fig.update_layout(
         height=350,  # 그래프 높이 증가로 가독성 개선
-        title=None,
-        xaxis_title=None,
+        title=dict(text="", font=dict(size=1)),  # 빈 제목으로 명시적 설정
+        xaxis_title="",
         yaxis_title=dict(text="레벨", font=dict(size=14, color="#0D1628")),
         plot_bgcolor="white",
         paper_bgcolor="white",
@@ -420,7 +420,7 @@ def create_intensity_chart(df, level_map):
         go.Bar(
             x=df["날짜"],
             y=df["훈련 강도 레벨"],
-            name="훈련 강도",
+            name="",  # 빈 이름으로 설정하여 undefined 방지
             marker=dict(color="#EE7D8D", cornerradius=16),
             customdata=df["강도 설명"],
             hovertemplate='<span style="font-size:12px;">%{x|%m월 %d일}</span><br><span style="color:#EE7D8D; font-size:14px;">■</span><span style="font-size:14px;"> <b>%{customdata} (Lvl:%{y})</b></span><extra></extra>',
@@ -428,9 +428,9 @@ def create_intensity_chart(df, level_map):
     )
     fig.update_layout(
         height=350,  # 그래프 높이 증가로 가독성 개선
-        title=None,
-        xaxis_title=None,
-        yaxis_title=None,
+        title=dict(text="", font=dict(size=1)),  # 빈 제목으로 명시적 설정
+        xaxis_title="",
+        yaxis_title="",
         plot_bgcolor="white",
         paper_bgcolor="white",
         font=dict(family="Helvetica, sans-serif", size=11, color="#86929A"),
