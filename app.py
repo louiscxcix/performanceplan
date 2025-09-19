@@ -123,6 +123,28 @@ st.markdown(
         box-shadow: 0px 6px 16px rgba(43, 167, 209, 0.4) !important;
         transform: translateY(-2px) !important;
     }
+
+    /* Download Button Styling */
+    .stDownloadButton > button {
+        width: 100%;
+        padding: 16px 36px !important;
+        background: linear-gradient(135deg, #6C757D 0%, #5A6268 100%) !important;
+        box-shadow: 0px 4px 12px rgba(108, 117, 125, 0.3) !important;
+        border-radius: 16px !important;
+        color: white !important;
+        font-size: 16px !important;
+        font-family: 'Helvetica', sans-serif;
+        font-weight: 600 !important;
+        border: 2px solid #5A6268 !important;
+        transition: all 0.3s ease !important;
+    }
+    .stDownloadButton > button:hover {
+        background: linear-gradient(135deg, #5A6268 0%, #495057 100%) !important;
+        color: white !important;
+        border: 2px solid #495057 !important;
+        box-shadow: 0px 6px 16px rgba(108, 117, 125, 0.4) !important;
+        transform: translateY(-2px) !important;
+    }
     
     /* Hide the default Streamlit header/footer */
     header, footer {
@@ -362,7 +384,7 @@ def create_performance_chart(df):
         )
     )
     fig.update_layout(
-        height=250,
+        height=350,  # 그래프 높이 증가로 가독성 개선
         title=None,
         xaxis_title=None,
         yaxis_title="레벨",
@@ -376,13 +398,7 @@ def create_performance_chart(df):
             showline=True,
             linecolor="#E8E8E8",
             tickformat="%m/%d",
-            rangeslider_visible=True,  # X축 스크롤바 활성화
-            rangeslider=dict(
-                visible=True,
-                bgcolor="rgba(232, 232, 232, 0.3)",
-                bordercolor="rgba(0,0,0,0)",
-                thickness=0.1,
-            ),
+            rangeslider_visible=False,  # X축 스크롤바 비활성화 - 깔끔한 표시
         ),
         yaxis=dict(showgrid=True, gridcolor="#E8E8E8", fixedrange=True),  # Y축 고정
         hoverlabel=dict(
@@ -411,7 +427,7 @@ def create_intensity_chart(df, level_map):
         )
     )
     fig.update_layout(
-        height=250,
+        height=350,  # 그래프 높이 증가로 가독성 개선
         title=None,
         xaxis_title=None,
         yaxis_title=None,
@@ -426,13 +442,7 @@ def create_intensity_chart(df, level_map):
             linecolor="#E8E8E8",
             tickformat="%m/%d",
             tickfont=dict(size=11),
-            rangeslider_visible=True,  # X축 스크롤바 활성화
-            rangeslider=dict(
-                visible=True,
-                bgcolor="rgba(232, 232, 232, 0.3)",
-                bordercolor="rgba(0,0,0,0)",
-                thickness=0.1,
-            ),
+            rangeslider_visible=False,  # X축 스크롤바 비활성화 - 깔끔한 표시
         ),
         yaxis=dict(
             showgrid=False,
@@ -807,6 +817,6 @@ if "plan_generated" in st.session_state and st.session_state.plan_generated:
                 }}, 500);
             }}
             </script>
-            <button id="save-img-btn" onclick="captureAndDownload()" style="width:100%; padding:12px; font-size:16px; font-weight:bold; color:white; background-color:#28a745; border:none; border-radius:5px; cursor:pointer;">📸 이미지로 저장</button>
+            <button id="save-img-btn" onclick="captureAndDownload()" style="width:100%; padding:16px 36px; font-size:16px; font-weight:600; color:white; background:linear-gradient(135deg, #28A745 0%, #20893A 100%); border:2px solid #20893A; border-radius:16px; cursor:pointer; transition:all 0.3s ease; font-family:'Helvetica', sans-serif;" onmouseover="this.style.background='linear-gradient(135deg, #20893A 0%, #1E7E35 100%)'; this.style.borderColor='#1E7E35'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0px 6px 16px rgba(40, 167, 69, 0.4)'" onmouseout="this.style.background='linear-gradient(135deg, #28A745 0%, #20893A 100%)'; this.style.borderColor='#20893A'; this.style.transform='translateY(0px)'; this.style.boxShadow='0px 4px 12px rgba(40, 167, 69, 0.3)'">📸 이미지로 저장</button>
         """
-        components.html(save_image_html, height=50)
+        components.html(save_image_html, height=70)  # 높이 증가로 버튼 정렬 개선
