@@ -101,48 +101,48 @@ st.markdown(
         padding-top: 12px;
     }
 
-    /* Submit Button Styling */
+    /* Submit Button Styling - Figma Design */
     .stButton > button, div[data-testid="stForm"] button[type="submit"] {
         width: 100%;
-        padding: 16px 36px !important;
-        background: linear-gradient(135deg, #2BA7D1 0%, #1A8BB0 100%) !important;
-        box-shadow: 0px 4px 12px rgba(43, 167, 209, 0.3) !important;
-        border-radius: 16px !important;
+        padding: 14px 36px !important;
+        background: linear-gradient(135deg, rgba(98, 120.20, 246, 0.20) 0%, rgba(29, 48, 78, 0) 100%), #2BA7D1 !important;
+        box-shadow: 0px 5px 10px rgba(26, 26, 26, 0.10) !important;
+        border-radius: 12px !important;
         color: white !important;
-        font-size: 16px !important;
+        font-size: 14px !important;
         font-family: 'Helvetica', sans-serif;
-        font-weight: 600 !important;
-        border: 2px solid #1A8BB0 !important;
+        font-weight: 400 !important;
+        border: none !important;
         margin-top: 20px !important;
         transition: all 0.3s ease !important;
     }
     .stButton > button:hover, div[data-testid="stForm"] button[type="submit"]:hover {
-        background: linear-gradient(135deg, #1A8BB0 0%, #147A9D 100%) !important;
+        background: linear-gradient(135deg, rgba(98, 120.20, 246, 0.30) 0%, rgba(29, 48, 78, 0) 100%), #1A8BB0 !important;
         color: white !important;
-        border: 2px solid #147A9D !important;
-        box-shadow: 0px 6px 16px rgba(43, 167, 209, 0.4) !important;
+        border: none !important;
+        box-shadow: 0px 6px 14px rgba(26, 26, 26, 0.15) !important;
         transform: translateY(-2px) !important;
     }
 
-    /* Download Button Styling */
+    /* Download Button Styling - Figma Design */
     .stDownloadButton > button {
         width: 100%;
-        padding: 16px 36px !important;
-        background: linear-gradient(135deg, #6C757D 0%, #5A6268 100%) !important;
-        box-shadow: 0px 4px 12px rgba(108, 117, 125, 0.3) !important;
-        border-radius: 16px !important;
+        padding: 14px 36px !important;
+        background: linear-gradient(135deg, rgba(98, 120.20, 246, 0.20) 0%, rgba(29, 48, 78, 0) 100%), #2BA7D1 !important;
+        box-shadow: 0px 5px 10px rgba(26, 26, 26, 0.10) !important;
+        border-radius: 12px !important;
         color: white !important;
-        font-size: 16px !important;
+        font-size: 14px !important;
         font-family: 'Helvetica', sans-serif;
-        font-weight: 600 !important;
-        border: 2px solid #5A6268 !important;
+        font-weight: 400 !important;
+        border: none !important;
         transition: all 0.3s ease !important;
     }
     .stDownloadButton > button:hover {
-        background: linear-gradient(135deg, #5A6268 0%, #495057 100%) !important;
+        background: linear-gradient(135deg, rgba(98, 120.20, 246, 0.30) 0%, rgba(29, 48, 78, 0) 100%), #1A8BB0 !important;
         color: white !important;
-        border: 2px solid #495057 !important;
-        box-shadow: 0px 6px 16px rgba(108, 117, 125, 0.4) !important;
+        border: none !important;
+        box-shadow: 0px 6px 14px rgba(26, 26, 26, 0.15) !important;
         transform: translateY(-2px) !important;
     }
     
@@ -177,7 +177,7 @@ def analyze_training_request_with_gemini(user_text, goal):
         )
         return None
 
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.0-flash")
 
     prompt = f"""
     당신은 엘리트 선수들을 코칭하는 세계적인 스포츠 과학 전문가입니다. 사용자가 입력한 목표와 훈련 설명을 분석하여, 최적의 성과를 위한 종합 훈련 프로그램을 구성해주세요.
@@ -393,12 +393,14 @@ def create_performance_chart(df):
         font=dict(family="Helvetica, sans-serif", size=12, color="#86929A"),
         showlegend=False,
         margin=dict(l=50, r=20, t=30, b=30),  # 여백 증가로 제목 잘림 방지
+        dragmode="pan",  # Pan 모드로 고정
         xaxis=dict(
             showgrid=False,
             showline=True,
             linecolor="#E8E8E8",
             tickformat="%m/%d",
             rangeslider_visible=False,  # X축 스크롤바 비활성화 - 깔끔한 표시
+            fixedrange=False,  # X축은 팬 가능
         ),
         yaxis=dict(showgrid=True, gridcolor="#E8E8E8", fixedrange=True),  # Y축 고정
         hoverlabel=dict(
@@ -436,6 +438,7 @@ def create_intensity_chart(df, level_map):
         font=dict(family="Helvetica, sans-serif", size=11, color="#86929A"),
         showlegend=False,
         margin=dict(l=40, r=20, t=30, b=30),  # 여백 증가로 제목 잘림 방지
+        dragmode="pan",  # Pan 모드로 고정
         xaxis=dict(
             showgrid=False,
             showline=True,
@@ -443,6 +446,7 @@ def create_intensity_chart(df, level_map):
             tickformat="%m/%d",
             tickfont=dict(size=11),
             rangeslider_visible=False,  # X축 스크롤바 비활성화 - 깔끔한 표시
+            fixedrange=False,  # X축은 팬 가능
         ),
         yaxis=dict(
             showgrid=False,
@@ -732,20 +736,21 @@ if "plan_generated" in st.session_state and st.session_state.plan_generated:
         key="chart_selector",
     )
 
-    # 그래프 렌더링을 위한 설정값 - 개선된 줌/팬 기능
+    # 그래프 렌더링을 위한 설정값 - 팬 모드만 활성화
     config = {
-        "scrollZoom": True,  # 마우스 휠로 줌 가능
+        "scrollZoom": False,  # 마우스 휠 줌 비활성화
         "displayModeBar": True,  # 툴바 표시
         "modeBarButtonsToRemove": [  # 불필요한 버튼 제거
             "lasso2d",
             "select2d",
+            "zoom2d",  # 줌 박스 선택 제거
+            "zoomIn2d",  # 줌인 버튼 제거
+            "zoomOut2d",  # 줌아웃 버튼 제거
+            "autoScale2d",  # 자동 스케일 제거
         ],
-        "modeBarButtonsToAdd": [  # 줌/팬 버튼 추가
+        "modeBarButtonsToAdd": [  # 팬 및 리셋 버튼만 추가
             "pan2d",
-            "zoom2d",
             "resetScale2d",
-            "zoomIn2d",
-            "zoomOut2d",
         ],
         "displaylogo": False,  # Plotly 로고 제거
     }
@@ -800,7 +805,11 @@ if "plan_generated" in st.session_state and st.session_state.plan_generated:
         )
     with col2:
         # 파일명 생성 시 안전한 문자열 처리
-        safe_goal_name = goal_name.replace(' ', '_').replace('/', '_').replace('\\', '_') if goal_name else "training_plan"
+        safe_goal_name = (
+            goal_name.replace(" ", "_").replace("/", "_").replace("\\", "_")
+            if goal_name
+            else "training_plan"
+        )
         file_name_for_image = f"{safe_goal_name}_plan.png"
         save_image_html = f"""
             <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
